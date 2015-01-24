@@ -1,4 +1,4 @@
 from . import deadlineWrapper
 reload(deadlineWrapper)
 
-from deadlineWrapper import *
+from .deadlineWrapper import *

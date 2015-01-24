@@ -5,43 +5,22 @@ import re
 import getpass
 import maya.cmds as mc
 import cStringIO
-
-
 from abc import ABCMeta, abstractproperty, abstractmethod
 from collections import OrderedDict
+
 
 import imaya
 findUIObjectByLabel = imaya.findUIObjectByLabel
 
-
-from . import deadlineWrapper as dl
-
-
-__deadlineShelfName__ = "Thinkbox"
-__deadlineShelfButton__ = "ICE_DeadlineSubmitter"
-
-__deadlineWindowName__ = 'DeadlineSubmitWindow'
-
-__deadlineUIStatus__ = False
-__deadlineWinExists__ = lambda: pc.window(__deadlineWindowName__, exists=1)
-
-
-if not dl.getStatus():
-    return
-
-__deadlineInitScript__ = os.path.join(__deadlineRepoPath__, "clientSetup",
-        "Maya", "InitDeadlineSubmitter.mel")
-__deadlineSubmitScript__ = os.path.join(__deadlineRepoPath__, "submission",
-        "Maya", "SubmitMayaToDeadline.mel")
-
-__removePattern__ = re.compile('[\s.;:\\/?"<>|]+')
+from .. import deadlineWrapper as dl
+reload(dl)
 
 
 class DeadlineMayaException(dl.DeadlineWrapperException):
     pass
 
 
-class DeadlineMayaBase(object):
+class DeadlineMayaSubmitterBase(object):
     ''' Base class for deadline
     '''
     __metaclass__ = ABCMeta
@@ -52,15 +31,32 @@ class DeadlineMayaBase(object):
     department=abstractproperty()
     projectPath=abstractproperty()
     camera=abstractproperty()
+    submitEachRenderLayer=abstractproperty() 
+    submitEachCamera=abstractproperty()
+    ignoreDefaultCamera=abstractproperty()
+    strictErrorChecking=abstractproperty()
+    localRendering=abstractproperty()
 
     def __init__(self, jobName=None, comment=None, department=None,
-            projectPath=None, camera=None, init=True):
+            projectPath=None, camera=None, repo=True):
         if jobName: self.jobName = jobName
         if comment: self.comment = comment
         if department: self.department = department
         if projectPath: self.projectPath = projectPath
         if camera: self.camera = camera
 
+        if not dl.getStatus():
+            raise DeadlineMayaException, "Deadline has negative status"
+
+        self._repo=None
+        if not repo:
+            self._repo=None
+        elif isinstance(repo, basestring):
+            self._repo = repo
+        else:
+            repo = dl.getRepositoryRoot()
+            if repo:
+                self._repo = repo
 
     @classmethod
     def buildJobName(cls, project='', username='', basename=''):
@@ -79,14 +75,26 @@ class DeadlineMayaBase(object):
         return '%s__%s__%s' % (project, username, basename)
 
     @abstractmethod
-    def submitRender():
+    def submitRender(self):
         "submit the render job to deadline repository"
-        return
+        pass
+
+    def getRepo(self):
+        return self._repo
+    def setRepo(self, value):
+        self._repo = value
+    repo = property(getRepo, setRepo)
 
 
-class DeadlineMayaUI(DeadlineMayaBase):
+class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     ''' Deadline Maya ui must only have one instance '''
     _instance = None
+
+    _deadlineShelfName = "Thinkbox"
+    _deadlineShelfButton = "ICE_DeadlineSubmitter"
+
+    _deadlineWindowName = 'DeadlineSubmitWindow'
+    _deadlineUIStatus = False
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
@@ -100,10 +108,6 @@ class DeadlineMayaUI(DeadlineMayaBase):
             addToShelf = kwargs.pop("addToShelf")
         super(DeadlineMayaUI, self).__init__()
 
-        global __deadlineInitScript__
-        global __deadlineSubmitScript__
-        global __deadlineUIStatus__
-
         jobName = kwargs.get('jobName')
         comment = kwargs.get('comment')
         department = kwargs.get('department')
@@ -116,20 +120,18 @@ class DeadlineMayaUI(DeadlineMayaBase):
         if projectPath: self.projectPath = projectPath
         if camera: self.camera = camera
 
-        __deadlineInitScript__ = os.path.join(__deadlineRepoPath__,
-                "clientSetup", "Maya", "InitDeadlineSubmitter.mel")
-        __deadlineSubmitScript__ = os.path.join(__deadlineRepoPath__,
-                "submission", "Maya", "SubmitMayaToDeadline.mel")
+        if not dl.getStatus():
+            raise DeadlineMayaException, 'Deadline not in path'
 
-        if not __deadlineStatus__:
-            raise DeadlineMayaException, 'Deadline not initialized'
+        initScript = self.getDeadlineScript(False)
+        print initScript
 
         try:
-            pc.mel.source(__deadlineInitScript__.replace("\\", "\\\\"))
-            __deadlineUIStatus__ = True
+            pc.mel.source(initScript.replace("\\", "\\\\"))
+            self._deadlineUIStatus = True
         except:
-            __deadlineUIStatus__ = False
-            raise DeadlineMayaException, '__initScript__ Source Error'
+            self._deadlineUIStatus = False
+            raise DeadlineMayaException, 'initScript Source Error'
 
         if addToShelf:
             self.addCustomLauncherToShelf()
@@ -138,23 +140,38 @@ class DeadlineMayaUI(DeadlineMayaBase):
     def initDeadlineUI(self):
         pass
 
+    def getDeadlineScript(self, submitScript=True):
+        repo = self._repo
+        if not repo:
+            repo = dl.getRepositoryRoot()
+        script = os.path.join(repo, "clientSetup", "Maya",
+                "SubmitMayaToDeadline.mel" if submitScript else
+                "InitDeadlineSubmitter.mel" )
+        if os.path.exists(script):
+            return script
+
+    @staticmethod
+    def _deadlineWinExists():
+        return pc.window( DeadlineMayaUI._deadlineWindowName, exists=1 )
+
+
     def addCustomLauncherToShelf(self):
-        if not __deadlineUIStatus__:
+        if not self._deadlineUIStatus:
             raise DeadlineMayaException, 'Deadline UI not initialized'
 
-        command =('import sceneBundle.src._deadline as deadlineSubmitter;'
-                'deadlineSubmitter.DeadlineMayaUI().openSubmissionWindow()')
+        command =('import ideadline.maya._deadlinemaya as deadlineSubmitter;'
+                'deadlineSubmitter.DeadlineMayaSubmitterUI().openSubmissionWindow()')
         try:
-            pc.uitypes.ShelfButton(__deadlineShelfButton__).setCommand(command)
+            pc.uitypes.ShelfButton(self._deadlineShelfButton).setCommand(command)
 
         except:
-            pc.shelfButton( __deadlineShelfButton__, parent=__deadlineShelfName__,
-                    annotation= __deadlineShelfButton__ + ": Use this one to submit",
+            pc.shelfButton( self._deadlineShelfButton, parent=self._deadlineShelfName,
+                    annotation= self._deadlineShelfButton + ": Use this one to submit",
                     image1="pythonFamily.xpm", stp="python",
                     command=command)
 
     def openSubmissionWindow(self, init=False, customize=True):
-        if not __deadlineUIStatus__:
+        if not self._deadlineUIStatus:
             raise DeadlineMayaException, 'Deadline not initialized'
         pc.mel.SubmitJobToDeadline()
         if customize:
@@ -163,47 +180,58 @@ class DeadlineMayaUI(DeadlineMayaBase):
             self.setJobName(DeadlineMayaBase.buildJobName())
 
     def closeSubmissionWindow(self):
-        if not __deadlineWinExists__():
+        if not DeadlineMayaUI.deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
-        pc.deleteUI( __deadlineWindowName__, win=True )
+        pc.deleteUI( self._deadlineWindowName, win=True )
 
     def submitRender(self, close=True):
-        if not __deadlineWinExists__():
+        old_repo = None
+        if self._repo:
+            cur_repo = dl.getRepositoryRoot()
+            if not self._repo == cur_repo:
+                old_repo = cur_repo
+                dl.changeRepository(self._repo)
+
+
+        if not DeadlineMayaUI._deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
-        submitButton = findUIObjectByLabel( __deadlineWindowName__,
+        submitButton = findUIObjectByLabel( self._deadlineWindowName,
                 pc.uitypes.Button, "Submit Job")
         if not submitButton:
             raise DeadlineMayaException, "Cannot find submit Button"
         if close:
             self.closeSubmissionWindow()
 
+        if old_repo:
+            dl.changeRepository(old_repo)
+
     def hideAndDisableUIElements(self):
         ''' Enable disable unrelated components
         '''
-        if not __deadlineWinExists__():
+        if not DeadlineMayaUI._deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
 
         pc.checkBox('frw_submitAsSuspended', e=True, v=True, en=False)
 
-        job = findUIObjectByLabel(__deadlineWindowName__, pc.uitypes.FrameLayout,
+        job = findUIObjectByLabel(self._deadlineWindowName, pc.uitypes.FrameLayout,
                 "Job Scheduling")
         if job:
             job.setCollapse(True)
             job.setEnable(False)
 
-        tile = findUIObjectByLabel(__deadlineWindowName__, pc.uitypes.FrameLayout,
+        tile = findUIObjectByLabel(self._deadlineWindowName, pc.uitypes.FrameLayout,
                 "Tile Rendering")
         if tile:
             tile.setCollapse(True)
             tile.setEnable(False)
 
-        rend = findUIObjectByLabel(__deadlineWindowName__, pc.uitypes.FrameLayout,
+        rend = findUIObjectByLabel(self._deadlineWindowName, pc.uitypes.FrameLayout,
                 "Maya Render Job")
         if rend:
             rend.setCollapse(True)
             rend.setEnable(False)
 
-        submit = findUIObjectByLabel(__deadlineWindowName__, pc.uitypes.CheckBox,
+        submit = findUIObjectByLabel(self._deadlineWindowName, pc.uitypes.CheckBox,
                 "Submit Maya Scene File")
         if submit:
             submit.setEnable(False)
@@ -213,6 +241,10 @@ class DeadlineMayaUI(DeadlineMayaBase):
         pc.uitypes.CheckBox('frw_useMayaBatchPlugin').setEnable(False)
         pc.uitypes.IntSliderGrp('frw_FrameGroup').setValue(4)
         pc.uitypes.ColumnLayout('shotgunTabLayout').setEnable(False)
+        self.submitEachRenderLayer = True
+        self.submitEachCamera = False
+        self.ignoreDefaultCamera = True
+        self.strictErrorChecking = True
 
     def __getEditProjectButton(self):
         return findUIObjectByLabel('DeadlineSubmitWindow', pc.uitypes.Button, "Edit Project")
@@ -253,18 +285,87 @@ class DeadlineMayaUI(DeadlineMayaBase):
         pc.optionMenuGrp('frw_camera').setValue
     camera = property(fget=getCamera, fset=setCamera)
 
+    def setSubmitEachRenderLayer(self, value):
+        if isinstance(value, bool):
+            pc.checkBox('frw_submitEachRenderLayer').setState(value)
+        else:
+            raise DeadlineMayaException, "Value must be a bool"
+    def getSubmitEachRenderLayer(self):
+        pc.checkBox('frw_submitEachRenderLayer').getvalue()
+    submitEachRenderLayer = property(fget=getSubmitEachRenderLayer,
+            fset=setSubmitEachRenderLayer)
+
+    def setSubmitEachCamera(self, value):
+        if isinstance(value, bool):
+            pc.checkBox('frw_submitEachCamera').setState(value)
+        else:
+            raise DeadlineMayaException, "Value must be a bool"
+    def getSubmitEachCamera(self):
+        pc.checkBox('frw_submitEachCamera').getvalue()
+    submitEachCamera = property(fget=getSubmitEachCamera,
+            fset=setSubmitEachCamera)
+
+    def setIgnoreDefaultCamera(self, value):
+        if isinstance(value, bool):
+            pc.checkBox('frw_ignoreDefaultCameras').setState(value)
+        else:
+            raise DeadlineMayaException, "Value must be a bool"
+    def getIgnoreDefaultCamera(self):
+        pc.checkBox('frw_ignoreDefaultCamera').getvalue()
+    ignoreDefaultCamera = property(fget=getIgnoreDefaultCamera,
+            fset=setIgnoreDefaultCamera)
+
+    def setStrictErrorChecking(self, value):
+        if isinstance(value, bool):
+            pc.checkBox('frw_strictErrorChecking').setState(value)
+        else:
+            raise DeadlineMayaException, "Value must be a bool"
+    def getStrictErrorChecking(self):
+        pc.checkBox('frw_strictErrorChecking').getvalue()
+    strictErrorChecking = property(fget=getStrictErrorChecking,
+            fset=setStrictErrorChecking)
+
+    def setLocalRendering(self, value):
+        if isinstance(value, bool):
+            pc.checkBox('frw_localRendering').setState(value)
+        else:
+            raise DeadlineMayaException, "Value must be a bool"
+    def getLocalRendering(self):
+        pc.checkBox('frw_localRendering').getvalue()
+    localRendering = property(fget=getLocalRendering,
+            fset=setLocalRendering)
+
 
 class DeadlineInfo(OrderedDict):
+    ''' Deadline Info '''
+
     def toString(self):
         output = cStringIO.StringIO()
         for key, value in self.iteritems():
             print >>output, "%s=%s"%(str(key), str(value.replace('\\', '/')))
         return output.getvalue()
 
+    def readFromString(self, fromString):
+        if not isinstance(fromString, basestring):
+            raise TypeError, "Only string are expected"
+        for line in fromString.splitlines(True):
+            splits = line.split('=')
+            if len(splits) < 2:
+                continue
+            self[splits[0]] = splits[1]
+
+    def readFromFile(self, filename):
+        with open('filename') as inputFile:
+            self.readFromString(inputFile.read())
+
+    def writeToFile(self, filename):
+        with open('filename', 'w') as outputfile:
+            outputfile.write(self.toString())
+
 
 class DeadlineJobInfo(DeadlineInfo):
-    def __init__(self):
-        super(DeadlineJobInfo, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(DeadlineJobInfo, self).__init__(*args, **kwargs)
         self['Plugin']='MayaBatch'
         self['Name']=''
         self['Comment']=''
@@ -285,9 +386,9 @@ class DeadlineJobInfo(DeadlineInfo):
         self['ChunkSize']='4'
 
 
-class DeadlinePluginInfo(DeadlineInfo):
-    def __init__(self):
-        super(DeadlinePluginInfo, self).__init__()
+class DeadlineMayaPluginInfo(DeadlineInfo):
+    def __init__(self, *args, **kwargs):
+        super(DeadlinePluginInfo, self).__init__(*args, **kwargs)
         self['Animation']=1
         self['Renderer']='arnold'
         self['UsingRenderLayers']=1
@@ -309,20 +410,107 @@ class DeadlinePluginInfo(DeadlineInfo):
         self['IgnoreError211']=0
 
 
-class DeadlineMayaJob(DeadlineMayaBase):
+class DeadlineMayaJob(object):
     ''' Submit Maya Job as rendered '''
 
     jobInfo = None
     pluginInfo = None
+    jobId = None
+    result = None
+    errorString = None
+    exitStatus = None
+    submitOnlyOnce = True
+    _repository = None
+    output = None
 
     def __init__(self, *args, **kwargs):
-        super(DeadlineMayaUI, self).__init__()
         self.jobInfo = DeadlineJobInfo()
-        self.pluginInfo = DeadlinePluginInfo()
+        self.pluginInfo = DeadlineMayaPluginInfo()
+        self.scene = mc.file(q=True, location=True)
 
-    def submitRender(self):
+    def setScene(self, scene):
+        self._scene = scene
+        self.jobInfo["SceneFile"]=scene
+    def getScene(self):
+        return self._scene
+    scene = property(fget=getScene, fset=setScene)
+
+    def copy(self):
+        ''' Create a new object with the same values'''
+        job = DeadlineMayaJob()
+        job.jobInfo = self.jobInfo.copy()
+        job.pluginInfo = self.jobInfo.copy()
+
+    def parseSubmissionOutput(self, output=None):
+        if output:
+            self.output = output
+        if not self.output:
+            return
+        output = self.output
+        for line in output.splitlines(True):
+            if 'exit status' in line:
+                self.exitStatus = int(line.split('exit status')[-1].split()[0])
+            if line.startswith('Submitting to Repository:'):
+                self.repository = line.split(':')[1].strip()
+            if line.startswith('Result='):
+                self.result = line.split('=')[1]
+            if line.startswith('JobID='):
+                self.jobId = line.split('=')[1]
+        splits = output.split("Output:")
+        if len(splits) > 2:
+            self.errorString = splits[-1].strip()
+
+    def repository():
+        doc = "The repository for job submission property"
+        def fget(self):
+            return self._repository
+        def fset(self, value):
+            self._repository = value
+            if not value:
+                self.pluginInfo.pop('NetworkRoot')
+            if value is not None:
+                self.pluginInfo['NetworkRoot']=value
+        return locals()
+    repository = property(**repository())
+
+    def submit(self):
+        ''' submit job '''
+        if self.jobId and submitOnlyOnce:
+            raise DeadlineMayaException, ("Job Already Submitted ... try"
+                    "job.copy().submit()")
+
+        if not self.scene
+
+        if self.repository:
+            self.pluginInfo['NetworkRoot']=self.repository
+
+        tempdir = os.path.join(dl.getCurrentUserHomeDirectory(), "Temp")
+        jobInfoFilename = os.path.join(tempdir, "deadlineJobInfo.job")
+        pluginInfoFilename = os.path.join(tempdir, "mayaPluginInfo.job")
+
+        with open(jobInfoFilename, "w") as infoFile:
+            infoFile.write(self.jobInfo.toString())
+        with open(pluginInfoFilename, "w") as infoFile:
+            infoFile.write(self.pluginInfo.toString())
+
+        try:
+            self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
+        except DeadlineWrapperException as e:
+            self.output = e.output
+
+        self.parseSubmissionOutput(output)
+
+        return self.jobId
+
+
+class DeadlineMayaSubmitter(DeadlineMayaBase):
+    _jobs = []
+
+    def __init__(self, *args, **kwargs):
         pass
 
+    def createJobs(self):
+        pass
 
 if __name__ == '__main__':
     dui = DeadlineMayaUI()
