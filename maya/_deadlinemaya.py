@@ -98,7 +98,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(DeadlineMayaUI, cls).__new__(
+            cls._instance = super(DeadlineMayaSubmitterUI, cls).__new__(
                                 cls, *args, **kwargs)
         return cls._instance
 
@@ -106,7 +106,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
         addToShelf=True
         if kwargs.has_key("addToShelf"):
             addToShelf = kwargs.pop("addToShelf")
-        super(DeadlineMayaUI, self).__init__()
+        super(DeadlineMayaSubmitterUI, self).__init__()
 
         jobName = kwargs.get('jobName')
         comment = kwargs.get('comment')
@@ -152,7 +152,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
 
     @staticmethod
     def _deadlineWinExists():
-        return pc.window( DeadlineMayaUI._deadlineWindowName, exists=1 )
+        return pc.window( DeadlineMayaSubmitterUI._deadlineWindowName, exists=1 )
 
 
     def addCustomLauncherToShelf(self):
@@ -177,10 +177,10 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
         if customize:
             self.__getEditProjectButton().setCommand(pc.Callback(pc.mel.projectWindow))
             self.hideAndDisableUIElements()
-            self.setJobName(DeadlineMayaBase.buildJobName())
+            self.setJobName(DeadlineMayaSubmitterBase.buildJobName())
 
     def closeSubmissionWindow(self):
-        if not DeadlineMayaUI.deadlineWinExists():
+        if not DeadlineMayaSubmitterUI.deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
         pc.deleteUI( self._deadlineWindowName, win=True )
 
@@ -193,7 +193,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
                 dl.changeRepository(self._repo)
 
 
-        if not DeadlineMayaUI._deadlineWinExists():
+        if not DeadlineMayaSubmitterUI._deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
         submitButton = findUIObjectByLabel( self._deadlineWindowName,
                 pc.uitypes.Button, "Submit Job")
@@ -208,7 +208,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     def hideAndDisableUIElements(self):
         ''' Enable disable unrelated components
         '''
-        if not DeadlineMayaUI._deadlineWinExists():
+        if not DeadlineMayaSubmitterUI._deadlineWinExists():
             raise DeadlineMayaException, "Window does not exist"
 
         pc.checkBox('frw_submitAsSuspended', e=True, v=True, en=False)
@@ -249,91 +249,92 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     def __getEditProjectButton(self):
         return findUIObjectByLabel('DeadlineSubmitWindow', pc.uitypes.Button, "Edit Project")
 
-    def setJobName(self, jobname):
-        pc.textFieldGrp('frw_JobName', e=True, text=jobname)
-    def getJobName(self):
-        return pc.textFieldGrp('frw_JobName', q=True, text=True)
-    jobName = property(fget=getJobName, fset=setJobName)
+    if 'properties':
+        def setJobName(self, jobname):
+            pc.textFieldGrp('frw_JobName', e=True, text=jobname)
+        def getJobName(self):
+            return pc.textFieldGrp('frw_JobName', q=True, text=True)
+        jobName = property(fget=getJobName, fset=setJobName)
 
-    def setComment(self, comment):
-        pc.textFieldGrp('frw_JobComment', e=True, text=comment)
-    def getComment(self):
-        pc.textFieldGrp('frw_JobComment', q=True, text=True)
-    comment = property(fget=getComment, fset=setComment)
+        def setComment(self, comment):
+            pc.textFieldGrp('frw_JobComment', e=True, text=comment)
+        def getComment(self):
+            pc.textFieldGrp('frw_JobComment', q=True, text=True)
+        comment = property(fget=getComment, fset=setComment)
 
-    def setDepartment(self, department):
-        pc.textFieldGrp('frw_Department', e=True, text=department)
-    def getDepartment(self):
-        pc.textFieldGrp('frw_Department', q=True, text=True)
-    department = property(fget=getDepartment, fset=setDepartment)
+        def setDepartment(self, department):
+            pc.textFieldGrp('frw_Department', e=True, text=department)
+        def getDepartment(self):
+            pc.textFieldGrp('frw_Department', q=True, text=True)
+        department = property(fget=getDepartment, fset=setDepartment)
 
-    def setProjectPath(self, projectpath):
-        pc.textFieldGrp('frw_projectPath', e=True, text=projectpath)
-    def getProjectPath(self):
-        pc.textFieldGrp('frw_projectPath', q=True, text=True)
-    projectPath = property(fget=getProjectPath, fset=setProjectPath)
+        def setProjectPath(self, projectpath):
+            pc.textFieldGrp('frw_projectPath', e=True, text=projectpath)
+        def getProjectPath(self):
+            pc.textFieldGrp('frw_projectPath', q=True, text=True)
+        projectPath = property(fget=getProjectPath, fset=setProjectPath)
 
-    def setOutputPath(self, outputpath):
-        pc.textFieldGrp('frw_outputFilePath', e=True, text=outputpath)
-    def getOutputPath(self):
-        pc.textFieldGrp('frw_outputFilePath', e=True, text=True)
-    outputPath = property(fget=getOutputPath, fset=setOutputPath)
+        def setOutputPath(self, outputpath):
+            pc.textFieldGrp('frw_outputFilePath', e=True, text=outputpath)
+        def getOutputPath(self):
+            pc.textFieldGrp('frw_outputFilePath', e=True, text=True)
+        outputPath = property(fget=getOutputPath, fset=setOutputPath)
 
-    def setCamera(self, camera):
-        pc.optionMenuGrp('frw_camera').setValue
-    def getCamera(self):
-        pc.optionMenuGrp('frw_camera').setValue
-    camera = property(fget=getCamera, fset=setCamera)
+        def setCamera(self, camera):
+            pc.optionMenuGrp('frw_camera').setValue
+        def getCamera(self):
+            pc.optionMenuGrp('frw_camera').setValue
+        camera = property(fget=getCamera, fset=setCamera)
 
-    def setSubmitEachRenderLayer(self, value):
-        if isinstance(value, bool):
-            pc.checkBox('frw_submitEachRenderLayer').setState(value)
-        else:
-            raise DeadlineMayaException, "Value must be a bool"
-    def getSubmitEachRenderLayer(self):
-        pc.checkBox('frw_submitEachRenderLayer').getvalue()
-    submitEachRenderLayer = property(fget=getSubmitEachRenderLayer,
-            fset=setSubmitEachRenderLayer)
+        def setSubmitEachRenderLayer(self, value):
+            if isinstance(value, bool):
+                pc.checkBox('frw_submitEachRenderLayer').setValue(value)
+            else:
+                raise DeadlineMayaException, "Value must be a bool"
+        def getSubmitEachRenderLayer(self):
+            pc.checkBox('frw_submitEachRenderLayer').getvalue()
+        submitEachRenderLayer = property(fget=getSubmitEachRenderLayer,
+                fset=setSubmitEachRenderLayer)
 
-    def setSubmitEachCamera(self, value):
-        if isinstance(value, bool):
-            pc.checkBox('frw_submitEachCamera').setState(value)
-        else:
-            raise DeadlineMayaException, "Value must be a bool"
-    def getSubmitEachCamera(self):
-        pc.checkBox('frw_submitEachCamera').getvalue()
-    submitEachCamera = property(fget=getSubmitEachCamera,
-            fset=setSubmitEachCamera)
+        def setSubmitEachCamera(self, value):
+            if isinstance(value, bool):
+                pc.checkBox('frw_submitEachCamera').setValue(value)
+            else:
+                raise DeadlineMayaException, "Value must be a bool"
+        def getSubmitEachCamera(self):
+            pc.checkBox('frw_submitEachCamera').getvalue()
+        submitEachCamera = property(fget=getSubmitEachCamera,
+                fset=setSubmitEachCamera)
 
-    def setIgnoreDefaultCamera(self, value):
-        if isinstance(value, bool):
-            pc.checkBox('frw_ignoreDefaultCameras').setState(value)
-        else:
-            raise DeadlineMayaException, "Value must be a bool"
-    def getIgnoreDefaultCamera(self):
-        pc.checkBox('frw_ignoreDefaultCamera').getvalue()
-    ignoreDefaultCamera = property(fget=getIgnoreDefaultCamera,
-            fset=setIgnoreDefaultCamera)
+        def setIgnoreDefaultCamera(self, value):
+            if isinstance(value, bool):
+                pc.checkBox('frw_ignoreDefaultCameras').setValue(value)
+            else:
+                raise DeadlineMayaException, "Value must be a bool"
+        def getIgnoreDefaultCamera(self):
+            pc.checkBox('frw_ignoreDefaultCamera').getvalue()
+        ignoreDefaultCamera = property(fget=getIgnoreDefaultCamera,
+                fset=setIgnoreDefaultCamera)
 
-    def setStrictErrorChecking(self, value):
-        if isinstance(value, bool):
-            pc.checkBox('frw_strictErrorChecking').setState(value)
-        else:
-            raise DeadlineMayaException, "Value must be a bool"
-    def getStrictErrorChecking(self):
-        pc.checkBox('frw_strictErrorChecking').getvalue()
-    strictErrorChecking = property(fget=getStrictErrorChecking,
-            fset=setStrictErrorChecking)
+        def setStrictErrorChecking(self, value):
+            if isinstance(value, bool):
+                pc.checkBox('frw_strictErrorChecking').setValue(value)
+            else:
+                raise DeadlineMayaException, "Value must be a bool"
+        def getStrictErrorChecking(self):
+            pc.checkBox('frw_strictErrorChecking').getvalue()
+        strictErrorChecking = property(fget=getStrictErrorChecking,
+                fset=setStrictErrorChecking)
 
-    def setLocalRendering(self, value):
-        if isinstance(value, bool):
-            pc.checkBox('frw_localRendering').setState(value)
-        else:
-            raise DeadlineMayaException, "Value must be a bool"
-    def getLocalRendering(self):
-        pc.checkBox('frw_localRendering').getvalue()
-    localRendering = property(fget=getLocalRendering,
-            fset=setLocalRendering)
+        def setLocalRendering(self, value):
+            if isinstance(value, bool):
+                pc.checkBox('frw_localRendering').setValue(value)
+            else:
+                raise DeadlineMayaException, "Value must be a bool"
+        def getLocalRendering(self):
+            pc.checkBox('frw_localRendering').getvalue()
+        localRendering = property(fget=getLocalRendering,
+                fset=setLocalRendering)
 
 
 class DeadlineInfo(OrderedDict):
@@ -388,7 +389,7 @@ class DeadlineJobInfo(DeadlineInfo):
 
 class DeadlineMayaPluginInfo(DeadlineInfo):
     def __init__(self, *args, **kwargs):
-        super(DeadlinePluginInfo, self).__init__(*args, **kwargs)
+        super(DeadlineMayaPluginInfo, self).__init__(*args, **kwargs)
         self['Animation']=1
         self['Renderer']='arnold'
         self['UsingRenderLayers']=1
@@ -475,11 +476,12 @@ class DeadlineMayaJob(object):
 
     def submit(self):
         ''' submit job '''
-        if self.jobId and submitOnlyOnce:
+        if self.jobId and self.submitOnlyOnce:
             raise DeadlineMayaException, ("Job Already Submitted ... try"
                     "job.copy().submit()")
 
-        if not self.scene
+            if not self.scene:
+                pass
 
         if self.repository:
             self.pluginInfo['NetworkRoot']=self.repository
@@ -495,24 +497,138 @@ class DeadlineMayaJob(object):
 
         try:
             self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
-        except DeadlineWrapperException as e:
+        except dl.DeadlineWrapperException as e:
             self.output = e.output
 
-        self.parseSubmissionOutput(output)
+        self.parseSubmissionOutput()
 
         return self.jobId
 
 
-class DeadlineMayaSubmitter(DeadlineMayaBase):
+class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     _jobs = []
 
-    def __init__(self, *args, **kwargs):
-        pass
+    def __init__(self, jobName=None, comment=None, department=None,
+            projectPath=None, camera=None, submitEachRenderLayer=None,
+            submitEachCamera=None, ignoreDefaultCamera=None,
+            strictErrorChecking=None, localRendering=None, sceneName=None):
+
+        if jobName is None:
+            self._jobName = mc.file(q=True, sceneName=True)
+        else:
+            self._jobName = jobName
+
+        if department is None:
+            self._department = ''
+        else:
+            self._department = department
+
+        if projectPath is None:
+            self._projectPath = imaya.getProjectPath()
+        else:
+            self._projectPath = projectPath
+
+        if camera is None:
+            self._camera = ''
+        else:
+            self._camera = camera
+
+        if submitEachRenderLayer is None:
+            self._submitEachRenderLayer = 1
+        else:
+            self._submitEachRenderLayer = submitEachRenderLayer
+
+        if submitEachCamera is None:
+            self._submitEachCamera = 0
+        else:
+            self._submitEachCamera = submitEachCamera
+
+        if ignoreDefaultCamera is None:
+            self._ignoreDefaultCamera = 1
+        else:
+            self._ignoreDefaultCamera = ignoreDefaultCamera
+
+        if strictErrorChecking is None:
+            self._strictErrorChecking = 1
+        else:
+            self._strictErrorChecking = strictErrorChecking
+
+        if sceneName is None:
+            self._sceneName = imaya.get_file_path()
+        else:
+            self._sceneName = sceneName
+
+        if localRendering is None:
+            self._localRendering = 0
+        else:
+            self._localRendering = localRendering
 
     def createJobs(self):
         pass
 
+    if 'properties':
+        def getJobName(self, val):
+            self._jobName = val
+        def setJobName(self):
+            return self._jobName
+        jobName=property(getJobName,setJobName)
+
+        def getComment(self, val):
+            self._comment = val
+        def setComment(self):
+            return self._comment
+        comment=property(getComment,setComment)
+
+        def getDepartment(self, val):
+            self._department = val
+        def setDepartment(self):
+            return self._department
+        department=property(getDepartment,setDepartment)
+
+        def getProjectPath(self, val):
+            self._projectPath = val
+        def setProjectPath(self):
+            return self._projectPath
+        projectPath=property(getProjectPath,setProjectPath)
+
+        def getCamera(self, val):
+            self._camera = val
+        def setCamera(self):
+            return self._camera
+        camera=property(getCamera,setCamera)
+
+        def getSubmitEachRenderLayer(self, val):
+            self._submitEachRenderLayer = val
+        def setSubmitEachRenderLayer(self):
+            return self._submitEachRenderLayer
+        submitEachRenderLayer=property(getSubmitEachRenderLayer,setSubmitEachRenderLayer) 
+
+        def getSubmitEachCamera(self, val):
+            self._submitEachCamera = val
+        def setSubmitEachCamera(self):
+            return self._submitEachCamera
+        submitEachCamera=property(getSubmitEachCamera,setSubmitEachCamera)
+
+        def getIgnoreDefaultCamera(self, val):
+            self._ignoreDefaultCamera = val
+        def setIgnoreDefaultCamera(self):
+            return self._ignoreDefaultCamera
+        ignoreDefaultCamera=property(getIgnoreDefaultCamera,setIgnoreDefaultCamera)
+
+        def getStrictErrorChecking(self, val):
+            self._strictErrorChecking = val
+        def setStrictErrorChecking(self):
+            return self._strictErrorChecking
+        strictErrorChecking=property(getStrictErrorChecking,setStrictErrorChecking)
+
+        def getLocalRendering(self, val):
+            self._localRendering = val
+        def setLocalRendering(self):
+            return self._localRendering
+        localRendering=property(getLocalRendering,setLocalRendering)
+
+
 if __name__ == '__main__':
-    dui = DeadlineMayaUI()
+    dui = DeadlineMayaSubmitterUI()
     dui.openSubmissionWindow()
 

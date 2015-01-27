@@ -17,9 +17,10 @@ _jobFilters = [ 'getJobsFilterAnd', 'getJobsFilterIniAnd',
 
 
 __all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
+        "filterIitems", "deadlineCommand", "jobFilter",
         "getRepositoryRoot", "getRepositoryRoots", "cycleRepository", "changeRepository",
-        "getCurrentUserHomeDirectory",
-        "deadlineCommand", "jobFilter"] + _jobFilters
+        "getCurrentUserHomeDirectory", "getJob", "getJobs", "getJobIds",
+        ] + _jobFilters
 
 
 # Constants
@@ -57,8 +58,7 @@ class DeadlineWrapperException(Exception):
 
 
 def deadlineCommand(command, *args, **kwargs):
-    ''' Invoke DeadlineCommand.exe to execute with the given args as
-    commandline args'''
+    ''' Invoke DeadlineCommand.exe to execute with the given args as commandline args'''
 
     commandargs = [__deadlineCmdPath__]
     commandargs.append(command)
