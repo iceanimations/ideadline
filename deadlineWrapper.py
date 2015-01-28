@@ -86,6 +86,7 @@ def deadlineCommand(command, *args, **kwargs):
 
     return output
 
+
 def getItemsFromOutput(output):
     items = []
     currentItem = OrderedDict()
@@ -114,6 +115,7 @@ def getItemsFromOutput(output):
         items.append(currentItem)
 
     return items
+
 
 matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains']
 def matchValue(itemval, filterval, method=matchMethods[0]):
@@ -194,7 +196,7 @@ def changeRepository(repo):
 
 def getCurrentUserHomeDirectory():
     '''Display all repository roots in the Deadline config file'''
-    deadlineCommand("GetCurrentUserHomeDirectory").strip()
+    return deadlineCommand("GetCurrentUserHomeDirectory").strip()
 
 
 def getJobIds():

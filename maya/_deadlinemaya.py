@@ -8,8 +8,11 @@ import cStringIO
 from abc import ABCMeta, abstractproperty, abstractmethod
 from collections import OrderedDict
 
+op = os.path
+
 
 import imaya
+reload(imaya)
 findUIObjectByLabel = imaya.findUIObjectByLabel
 
 from .. import deadlineWrapper as dl
@@ -343,7 +346,7 @@ class DeadlineInfo(OrderedDict):
     def toString(self):
         output = cStringIO.StringIO()
         for key, value in self.iteritems():
-            print >>output, "%s=%s"%(str(key), str(value.replace('\\', '/')))
+            print >>output, "%s=%s"%(str(key), str(value).replace('\\', '/'))
         return output.getvalue()
 
     def readFromString(self, fromString):
@@ -510,13 +513,19 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
     def __init__(self, jobName=None, comment=None, department=None,
             projectPath=None, camera=None, submitEachRenderLayer=None,
-            submitEachCamera=None, ignoreDefaultCamera=None,
-            strictErrorChecking=None, localRendering=None, sceneName=None):
+            submitEachCamera=None, ignoreDefaultCamera=None, outputPath=None,
+            strictErrorChecking=None, localRendering=None, sceneFile=None,
+            pool=None):
 
         if jobName is None:
             self._jobName = mc.file(q=True, sceneName=True)
         else:
             self._jobName = jobName
+
+        if comment is None:
+            self._comment = ''
+        else:
+            self._comment = comment
 
         if department is None:
             self._department = ''
@@ -529,7 +538,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             self._projectPath = projectPath
 
         if camera is None:
-            self._camera = ''
+            self._camera = None
         else:
             self._camera = camera
 
@@ -553,80 +562,208 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._strictErrorChecking = strictErrorChecking
 
-        if sceneName is None:
-            self._sceneName = imaya.get_file_path()
+        if sceneFile is None:
+            self._sceneFile = imaya.get_file_path()
         else:
-            self._sceneName = sceneName
+            self._sceneFile = sceneFile
 
         if localRendering is None:
             self._localRendering = 0
         else:
             self._localRendering = localRendering
 
+        if localRendering is None:
+            self._localRendering = 0
+        else:
+            self._localRendering = localRendering
+
+        if outputPath is None:
+            try:
+                self._outputPath = imaya.getImagesLocation(self.projectPath)
+            except RuntimeError:
+                self._outputPath = op.join(self._projectPath, 'images')
+        else:
+            self._outputPath = outputPath
+
+        if pool is None:
+            self._pool='none'
+        else:
+            self._pool=pool
+
     def createJobs(self):
-        pass
+        layers = [None]
+        if self.submitEachRenderLayer:
+            layers = imaya.getRenderLayers()
+        for layer in layers:
+            imaya.setCurrentRenderLayer(layer)
+            cams = [self.camera]
+            if self.submitEachCamera:
+                cams = imaya.getCameras(True, self.ignoreDefaultCameras)
+            for cam in cams:
+                self._jobs.append(self.createJob(layer, cam))
+        return self._jobs
+
+    def createJob(self, layer=None, camera=None):
+        '''create one job'''
+        if layer is not None:
+            layer = pc.nt.RenderLayer(layer)
+        if camera is not None:
+            camera = pc.nt.Camera(camera)
+
+        if layer.isReferenced():
+            raise DeadlineMayaException, (
+                    'Referenced layer %s is not renderable'%str )
+
+        job = DeadlineMayaJob()
+
+        job.jobInfo['Name']=(self.jobName + 
+                ("- layer -" + layer ) if self.submitEachRenderLayer else '' +
+                ("- cam - "  + cam   ) if self.submitEachCamera else '')
+        job.jobInfo['Comment']=self.comment
+        job.jobInfo['Pool']=self.pool
+        job.jobInfo['Department']=self.department
+        self.setOutputFilenames(job, layer=layer, camera=camera)
+        self.setFrames(job)
+
+        pi = job.pluginInfo
+        pi['Animation']=int(imaya.isAnimationOn())
+        pi['Renderer']=imaya.currentRenderer()
+        pi['UsingRenderLayers']=1 if len(imaya.getRenderLayers(
+            renderableOnly=False)) > 1 else 0
+        pi['RenderLayer']=layer if layer is not None else ''
+        pi['localRendering']=int(self.localRendering)
+        pi['StrictErrorChecking']=int(self.strictErrorChecking)
+        pi['Version']=imaya.maya_version()
+        pi['Build']=imaya.getBitString()
+        pi['ProjectPath']=op.normpath(self.projectPath).replace('\\', '/')
+        resolution = imaya.getResolution()
+        pi['ImageWidth'] = resolution[0]
+        pi['ImageHeight'] = resolution[1]
+        pi['OutputFilePath'] = op.normpath(self.outputPath).replace('\\', '/')
+        pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
+        pi['Camera']=camera if camera is not None else ''
+        self.setCameras(job)
+        pi['SceneFile']=op.normpath(self.sceneFile).replace('\\', '/')
+
+        return job
+
+    def setCameras(self, job):
+        cams = imaya.getCameras(False, False)
+        for idx, cam in enumerate(cams):
+            key = 'Camera' + str(idx + 1)
+            job.pluginInfo[key]=str(cam)
+
+
+    def setFrames(self, job):
+        start, finish, byframe = imaya.getFrameRange()
+        frames = "%d-%d"%(int(start), int(finish))
+        frames += 'x%d'%int(byframe)
+        job.jobInfo['Frames']=frames
+
+    def setOutputFilenames(self, job, layer=None, camera=None):
+        '''OutputFilename0='''
+        outputFilenames = imaya.getOutputFilePaths(renderLayer=layer,
+                camera=camera)
+        outputFilenames = [
+                op.normpath(op.abspath(op.realpath(
+                        op.join(self.outputPath, myfile)))).replace("\\", "/")
+                if not op.isabs(myfile)
+                else op.normpath(op.realpath(myfile)).replace("\\", "/")
+                for myfile in outputFilenames]
+
+        for idx, ofn in enumerate(outputFilenames):
+            key = "OutputFilename" + str(idx)
+            job.jobInfo[key]=ofn
+
+
+    def submitJobs(self):
+        for job in self._jobs:
+            if not job.jobId:
+                job.submit()
+    submitRender = submitJobs
+
+
+    def getJobs(self):
+        return self._jobs
 
     if 'properties':
-        def getJobName(self, val):
+        def setJobName(self, val):
             self._jobName = val
-        def setJobName(self):
+        def getJobName(self):
             return self._jobName
         jobName=property(getJobName,setJobName)
 
-        def getComment(self, val):
+        def setComment(self, val):
             self._comment = val
-        def setComment(self):
+        def getComment(self):
             return self._comment
         comment=property(getComment,setComment)
 
-        def getDepartment(self, val):
+        def setDepartment(self, val):
             self._department = val
-        def setDepartment(self):
+        def getDepartment(self):
             return self._department
         department=property(getDepartment,setDepartment)
 
-        def getProjectPath(self, val):
+        def setProjectPath(self, val):
             self._projectPath = val
-        def setProjectPath(self):
+        def getProjectPath(self):
             return self._projectPath
         projectPath=property(getProjectPath,setProjectPath)
 
-        def getCamera(self, val):
+        def setCamera(self, val):
             self._camera = val
-        def setCamera(self):
+        def getCamera(self):
             return self._camera
         camera=property(getCamera,setCamera)
 
-        def getSubmitEachRenderLayer(self, val):
+        def setSubmitEachRenderLayer(self, val):
             self._submitEachRenderLayer = val
-        def setSubmitEachRenderLayer(self):
+        def getSubmitEachRenderLayer(self):
             return self._submitEachRenderLayer
         submitEachRenderLayer=property(getSubmitEachRenderLayer,setSubmitEachRenderLayer) 
 
-        def getSubmitEachCamera(self, val):
+        def setSubmitEachCamera(self, val):
             self._submitEachCamera = val
-        def setSubmitEachCamera(self):
+        def getSubmitEachCamera(self):
             return self._submitEachCamera
         submitEachCamera=property(getSubmitEachCamera,setSubmitEachCamera)
 
-        def getIgnoreDefaultCamera(self, val):
+        def setIgnoreDefaultCamera(self, val):
             self._ignoreDefaultCamera = val
-        def setIgnoreDefaultCamera(self):
+        def getIgnoreDefaultCamera(self):
             return self._ignoreDefaultCamera
         ignoreDefaultCamera=property(getIgnoreDefaultCamera,setIgnoreDefaultCamera)
 
-        def getStrictErrorChecking(self, val):
+        def setStrictErrorChecking(self, val):
             self._strictErrorChecking = val
-        def setStrictErrorChecking(self):
+        def getStrictErrorChecking(self):
             return self._strictErrorChecking
         strictErrorChecking=property(getStrictErrorChecking,setStrictErrorChecking)
 
-        def getLocalRendering(self, val):
+        def setLocalRendering(self, val):
             self._localRendering = val
-        def setLocalRendering(self):
+        def getLocalRendering(self):
             return self._localRendering
         localRendering=property(getLocalRendering,setLocalRendering)
 
+        def setOutputPath(self, val):
+            self._outputPath = val
+        def getOutputPath(self):
+            return self._outputPath
+        outputPath=property(getOutputPath,setOutputPath)
+
+        def setPool(self, val):
+            self._pool = val
+        def getPool(self):
+            return self._pool
+        pool=property(getPool,setPool)
+
+        def setSceneFile(self, val):
+            self._sceneFile = val
+        def getSceneFile(self):
+            return self._sceneFile
+        sceneFile=property(getSceneFile, setSceneFile)
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()
