@@ -387,7 +387,7 @@ class DeadlineJobInfo(DeadlineInfo):
         self['InitialStatus']='Active'
         self['OutputFilename0']=''
         self['Frames']='1-48'
-        self['ChunkSize']='4'
+        self['ChunkSize']='15'
 
 
 class DeadlineMayaPluginInfo(DeadlineInfo):
