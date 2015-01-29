@@ -433,10 +433,9 @@ class DeadlineMayaJob(object):
         self.scene = mc.file(q=True, location=True)
 
     def setScene(self, scene):
-        self._scene = scene
         self.jobInfo["SceneFile"]=scene
     def getScene(self):
-        return self._scene
+        return self.jobInfo["SceneFile"]
     scene = property(fget=getScene, fset=setScene)
 
     def copy(self):
@@ -501,7 +500,8 @@ class DeadlineMayaJob(object):
         try:
             self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
         except dl.DeadlineWrapperException as e:
-            self.output = e.output
+            self.output = e.message
+            raise DeadlineMayaException, "Error Submitting Job\n" + e.message
 
         self.parseSubmissionOutput()
 
@@ -509,7 +509,7 @@ class DeadlineMayaJob(object):
 
 
 class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
-    _jobs = []
+    _jobs=[]
 
     def __init__(self, jobName=None, comment=None, department=None,
             projectPath=None, camera=None, submitEachRenderLayer=None,
@@ -591,6 +591,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             self._pool=pool
 
     def createJobs(self):
+        self._jobs=[]
         layers = [None]
         if self.submitEachRenderLayer:
             layers = imaya.getRenderLayers()
@@ -622,6 +623,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
         job.jobInfo['Department']=self.department
+        job.jobInfo['SceneFile']=op.normpath(self.sceneFile).replace('\\', '/')
         self.setOutputFilenames(job, layer=layer, camera=camera)
         self.setFrames(job)
 

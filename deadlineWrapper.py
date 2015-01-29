@@ -17,9 +17,10 @@ _jobFilters = [ 'getJobsFilterAnd', 'getJobsFilterIniAnd',
 
 
 __all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
-        "filterIitems", "deadlineCommand", "jobFilter",
+        "filterItems", "deadlineCommand", "jobFilter",
         "getRepositoryRoot", "getRepositoryRoots", "cycleRepository", "changeRepository",
         "getCurrentUserHomeDirectory", "getJob", "getJobs", "getJobIds",
+        "pools"
         ] + _jobFilters
 
 
@@ -62,21 +63,20 @@ def deadlineCommand(command, *args, **kwargs):
 
     commandargs = [__deadlineCmdPath__]
     commandargs.append(command)
-    commandargs.extend(args)
+    commandargs.extend([str(arg) for arg in args])
 
     for key, val in kwargs.items():
-        commandargs.append("-" + key)
+        commandargs.append("-" + str(key))
         if isinstance(val, basestring):
             commandargs.append(val)
         elif isinstance(val, Iterable):
-            commandargs.extend(val)
+            commandargs.extend([str(v) for v in val])
         else:
             commandargs.append(str(val))
 
     try:
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        print commandargs
         output = subprocess.check_output(commandargs, stderr=subprocess.STDOUT,
                 startupinfo=startupinfo)
 
@@ -133,7 +133,7 @@ def matchValue(itemval, filterval, method=matchMethods[0]):
         raise DeadlineWrapperException, "Unknown filter type"
 
 
-def filterIitems(items, filters=[], match_any=True):
+def filterItems(items, filters=[], match_any=True):
     ''' filter items on bases of the provided filters '''
     filtered = []
 
@@ -179,6 +179,9 @@ def getStatus():
     return os.path.exists(__deadlineCmdPath__)
 
 
+def pools():
+    return getItemsFromOutput(deadlineCommand("Pools"))
+
 def getRepositoryRoot():
     '''Display the repository network root '''
     return deadlineCommand("Root").strip()
@@ -207,14 +210,15 @@ def getJobIds():
 def getJobs(useIniDisplay=False):
     '''Displays information for all the jobs'''
     useIniDisplay = bool(useIniDisplay)
-    return getItemsFromOutput(deadlineCommand("GetJobs", useIniDisplay))
+    return getItemsFromOutput(deadlineCommand("GetJobs", str(useIniDisplay)))
 
 
 def getJob(jobIds, useIniDisplay=False):
     '''Display information for the job'''
     useIniDisplay = bool(useIniDisplay)
     if isinstance(jobIds, basestring):
-        items = getItemsFromOutput(deadlineCommand("GetJob", useIniDisplay))
+        items = getItemsFromOutput(deadlineCommand("GetJob",
+            str(useIniDisplay)))
         if items:
             return items[0]
     elif isinstance(jobIds, Iterable):
