@@ -384,7 +384,7 @@ class DeadlineJobInfo(DeadlineInfo):
         self['Group']='none'
         self['LimitGroups']=''
         self['JobDependencies']=''
-        self['InitialStatus']='Queued'
+        self['InitialStatus']='Active'
         self['OutputFilename0']=''
         self['Frames']='1-48'
         self['ChunkSize']='4'
