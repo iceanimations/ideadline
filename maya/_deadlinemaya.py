@@ -434,8 +434,9 @@ class DeadlineMayaJob(object):
 
     def setScene(self, scene):
         self.jobInfo["SceneFile"]=scene
+        self.pluginInfo["SceneFile"]=scene
     def getScene(self):
-        return self.jobInfo["SceneFile"]
+        return self.pluginInfo["SceneFile"]
     scene = property(fget=getScene, fset=setScene)
 
     def copy(self):
@@ -618,12 +619,13 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         job = DeadlineMayaJob()
 
         job.jobInfo['Name']=(self.jobName + 
-                ("- layer -" + layer ) if self.submitEachRenderLayer else '' +
-                ("- cam - "  + cam   ) if self.submitEachCamera else '')
+                (("- layer -" + layer ) if (self.submitEachRenderLayer and
+                        len(imaya.getRenderLayers())) > 1 else '') +
+                (("- cam - "  + camera   ) if (self.submitEachCamera  and
+                        len(imaya.getRenderLayers())) > 1 else ''))
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
         job.jobInfo['Department']=self.department
-        job.jobInfo['SceneFile']=op.normpath(self.sceneFile).replace('\\', '/')
         self.setOutputFilenames(job, layer=layer, camera=camera)
         self.setFrames(job)
 
@@ -645,7 +647,8 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
         pi['Camera']=camera if camera is not None else ''
         self.setCameras(job)
-        pi['SceneFile']=op.normpath(self.sceneFile).replace('\\', '/')
+
+        job.scene=op.normpath(self.sceneFile).replace('\\', '/')
 
         return job
 
@@ -654,7 +657,6 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         for idx, cam in enumerate(cams):
             key = 'Camera' + str(idx + 1)
             job.pluginInfo[key]=str(cam)
-
 
     def setFrames(self, job):
         start, finish, byframe = imaya.getFrameRange()
@@ -677,13 +679,11 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             key = "OutputFilename" + str(idx)
             job.jobInfo[key]=ofn
 
-
     def submitJobs(self):
         for job in self._jobs:
             if not job.jobId:
                 job.submit()
     submitRender = submitJobs
-
 
     def getJobs(self):
         return self._jobs
