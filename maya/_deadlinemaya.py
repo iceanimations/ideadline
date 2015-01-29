@@ -375,7 +375,7 @@ class DeadlineJobInfo(DeadlineInfo):
         self['Comment']=''
         self['Pool']='none'
         self['MachineLimit']=0
-        self['Priority']=50
+        self['Priority']=25
         self['OnJobComplete']='Nothing'
         self['TaskTimeoutMinutes']=0
         self['MinRenderTimeMinutes']=0
@@ -384,7 +384,7 @@ class DeadlineJobInfo(DeadlineInfo):
         self['Group']='none'
         self['LimitGroups']=''
         self['JobDependencies']=''
-        self['InitialStatus']='Suspended'
+        self['InitialStatus']='Queued'
         self['OutputFilename0']=''
         self['Frames']='1-48'
         self['ChunkSize']='4'
