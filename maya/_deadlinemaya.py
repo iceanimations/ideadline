@@ -504,7 +504,7 @@ class DeadlineMayaJob(object):
             commandargs = [jobInfoFilename, pluginInfoFilename]
             if self.submitSceneFile:
                 commandargs.append(self.scene)
-            self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
+            self.output = dl.deadlineCommand(*commandargs)
         except dl.DeadlineWrapperException as e:
             self.output = e.message
             raise DeadlineMayaException, "Error Submitting Job\n" + e.message
