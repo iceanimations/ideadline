@@ -427,6 +427,7 @@ class DeadlineMayaJob(object):
     submitOnlyOnce = True
     _repository = None
     output = None
+    submitSceneFile = False
 
     def __init__(self, *args, **kwargs):
         self.jobInfo = DeadlineJobInfo()
@@ -500,6 +501,9 @@ class DeadlineMayaJob(object):
             infoFile.write(self.pluginInfo.toString())
 
         try:
+            commandargs = [jobInfoFilename, pluginInfoFilename]
+            if self.submitSceneFile:
+                commandargs.append(self.scene)
             self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
         except dl.DeadlineWrapperException as e:
             self.output = e.message
@@ -634,6 +638,9 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
                     'Referenced layer %s is not renderable'%str )
 
         job = DeadlineMayaJob()
+
+
+        job.submitSceneFile = self.submitSceneFile
 
         job.jobInfo['Name']=(self.jobName + 
                 (("- layer -" + layer ) if (self.submitEachRenderLayer and
@@ -808,7 +815,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             self._submitAsSuspended = val
         def getSubmitSceneFile(self):
             return self._submitAsSuspended
-        submitAsSuspended=property(getSubmitSceneFile, setSubmitSceneFile)
+        submitSceneFile=property(getSubmitSceneFile, setSubmitSceneFile)
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()
