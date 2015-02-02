@@ -40,6 +40,7 @@ class DeadlineMayaSubmitterBase(object):
     strictErrorChecking=abstractproperty()
     localRendering=abstractproperty()
 
+
     def __init__(self, jobName=None, comment=None, department=None,
             projectPath=None, camera=None, repo=True):
         if jobName: self.jobName = jobName
@@ -426,6 +427,7 @@ class DeadlineMayaJob(object):
     submitOnlyOnce = True
     _repository = None
     output = None
+    submitSceneFile = False
 
     def __init__(self, *args, **kwargs):
         self.jobInfo = DeadlineJobInfo()
@@ -499,6 +501,9 @@ class DeadlineMayaJob(object):
             infoFile.write(self.pluginInfo.toString())
 
         try:
+            commandargs = [jobInfoFilename, pluginInfoFilename]
+            if self.submitSceneFile:
+                commandargs.append(self.scene)
             self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
         except dl.DeadlineWrapperException as e:
             self.output = e.message
@@ -516,7 +521,8 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             projectPath=None, camera=None, submitEachRenderLayer=None,
             submitEachCamera=None, ignoreDefaultCamera=None, outputPath=None,
             strictErrorChecking=None, localRendering=None, sceneFile=None,
-            pool=None):
+            pool=None, submitAsSuspended=None, priority=None,
+            submitSceneFile=None):
 
         if jobName is None:
             self._jobName = mc.file(q=True, sceneName=True)
@@ -586,6 +592,21 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._outputPath = outputPath
 
+        if submitAsSuspended is None:
+            self._submitAsSuspended = False
+        else:
+            self._submitAsSuspended = submitAsSuspended
+
+        if priority is None:
+            self._priority = '25'
+        else:
+            self._priority = priority
+
+        if submitSceneFile is None:
+            self._submitSceneFile = False
+        else:
+            self._submitSceneFile = priority
+
         if pool is None:
             self._pool='none'
         else:
@@ -598,6 +619,12 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             layers = imaya.getRenderLayers()
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
+            if not self.camera:
+                rencamlist = imaya.getCameras()
+                if len(rencamlist) == 1:
+                    self.camera = rencamlist[0]
+                if len(rencamlist) == 0:
+                    self.camera = imaya.getCameras(False, False)[0]
             cams = [self.camera]
             if self.submitEachCamera:
                 cams = imaya.getCameras(True, self.ignoreDefaultCameras)
@@ -618,14 +645,19 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
         job = DeadlineMayaJob()
 
+        job.submitSceneFile = self.submitSceneFile
+
         job.jobInfo['Name']=(self.jobName + 
-                (("- layer -" + layer ) if (self.submitEachRenderLayer and
+                ((" - layer - " + layer ) if (self.submitEachRenderLayer and
                         len(imaya.getRenderLayers())) > 1 else '') +
-                (("- cam - "  + camera   ) if (self.submitEachCamera  and
+                ((" - cam - "  + camera   ) if (self.submitEachCamera  and
                         len(imaya.getRenderLayers())) > 1 else ''))
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
         job.jobInfo['Department']=self.department
+        job.jobInfo['Priority']=self.priority
+        job.jobInfo['InitialStatus']=('Suspended' if self.submitAsSuspended
+                else 'Active')
         self.setOutputFilenames(job, layer=layer, camera=camera)
         self.setFrames(job)
 
@@ -766,6 +798,29 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         def getSceneFile(self):
             return self._sceneFile
         sceneFile=property(getSceneFile, setSceneFile)
+
+        def setPriority(self, val):
+            if not isinstance(val, int):
+                raise TypeError, 'priority must be int'
+            if val < 0 or val > 100:
+                raise ValueError, 'priority must be between 0 and 100'
+            self._priority = val
+        def getPriority(self):
+            return self._priority
+        priority=property(getPriority, setPriority)
+
+        def setSubmitAsSuspended(self, val):
+            val = bool(val)
+            self._submitAsSuspended = val
+        def getSubmitAsSuspended(self):
+            return self._submitAsSuspended
+        submitAsSuspended=property(getSubmitAsSuspended, setSubmitAsSuspended)
+
+        def setSubmitSceneFile(self, val):
+            self._submitAsSuspended = val
+        def getSubmitSceneFile(self):
+            return self._submitAsSuspended
+        submitSceneFile=property(getSubmitSceneFile, setSubmitSceneFile)
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()
