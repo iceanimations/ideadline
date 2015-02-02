@@ -619,6 +619,11 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             layers = imaya.getRenderLayers()
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
+            if not self.camera:
+                if len(imaya.getCameras()) == 1:
+                    self.camera = imaya.getCameras()[0]
+                if len(imaya.getCameras()) == 0:
+                    self.camera = imaya.getCameras(False, False)[0]
             cams = [self.camera]
             if self.submitEachCamera:
                 cams = imaya.getCameras(True, self.ignoreDefaultCameras)
@@ -643,9 +648,9 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         job.submitSceneFile = self.submitSceneFile
 
         job.jobInfo['Name']=(self.jobName + 
-                (("- layer -" + layer ) if (self.submitEachRenderLayer and
+                ((" - layer - " + layer ) if (self.submitEachRenderLayer and
                         len(imaya.getRenderLayers())) > 1 else '') +
-                (("- cam - "  + camera   ) if (self.submitEachCamera  and
+                ((" - cam - "  + camera   ) if (self.submitEachCamera  and
                         len(imaya.getRenderLayers())) > 1 else ''))
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
