@@ -504,7 +504,7 @@ class DeadlineMayaJob(object):
             commandargs = [jobInfoFilename, pluginInfoFilename]
             if self.submitSceneFile:
                 commandargs.append(self.scene)
-            self.output = dl.deadlineCommand(jobInfoFilename, pluginInfoFilename, self.scene)
+            self.output = dl.deadlineCommand(*commandargs)
         except dl.DeadlineWrapperException as e:
             self.output = e.message
             raise DeadlineMayaException, "Error Submitting Job\n" + e.message
@@ -522,7 +522,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             submitEachCamera=None, ignoreDefaultCamera=None, outputPath=None,
             strictErrorChecking=None, localRendering=None, sceneFile=None,
             pool=None, submitAsSuspended=None, priority=None,
-            submitSceneFile=None):
+            submitSceneFile=None, chunkSize=None):
 
         if jobName is None:
             self._jobName = mc.file(q=True, sceneName=True)
@@ -607,6 +607,11 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._submitSceneFile = priority
 
+        if chunkSize is None:
+            self._chunkSize='none'
+        else:
+            self._chunkSize=chunkSize
+
         if pool is None:
             self._pool='none'
         else:
@@ -658,6 +663,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         job.jobInfo['Priority']=self.priority
         job.jobInfo['InitialStatus']=('Suspended' if self.submitAsSuspended
                 else 'Active')
+        job.jobInfo['ChunkSize'] = self.chunkSize
         self.setOutputFilenames(job, layer=layer, camera=camera)
         self.setFrames(job)
 
@@ -821,6 +827,14 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         def getSubmitSceneFile(self):
             return self._submitAsSuspended
         submitSceneFile=property(getSubmitSceneFile, setSubmitSceneFile)
+
+        def setChunkSize(self, val):
+            if not isinstance(val, int):
+                raise TypeError, 'Chunk size should be an int'
+            self._chunkSize = val
+        def getChunkSize(self):
+            return self._chunkSize
+        chunkSize=property(getChunkSize, setChunkSize)
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()

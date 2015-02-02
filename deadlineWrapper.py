@@ -244,7 +244,6 @@ def jobFilter(command, filters=[]):
 
 for fil in _jobFilters:
     func = partial(jobFilter, fil)
-    setattr(sys.modules[__name__], fil, func)
 
 
 if __name__ == '__main__':
