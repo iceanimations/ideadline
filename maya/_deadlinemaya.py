@@ -620,9 +620,10 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
             if not self.camera:
-                if len(imaya.getCameras()) == 1:
-                    self.camera = imaya.getCameras()[0]
-                if len(imaya.getCameras()) == 0:
+                rencamlist = imaya.getCameras()
+                if len(rencamlist) == 1:
+                    self.camera = rencamlist[0]
+                if len(rencamlist) == 0:
                     self.camera = imaya.getCameras(False, False)[0]
             cams = [self.camera]
             if self.submitEachCamera:
@@ -644,7 +645,6 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
         job = DeadlineMayaJob()
 
-
         job.submitSceneFile = self.submitSceneFile
 
         job.jobInfo['Name']=(self.jobName + 
@@ -655,7 +655,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
         job.jobInfo['Department']=self.department
-        job.jobInfo['priority']=self.priority
+        job.jobInfo['Priority']=self.priority
         job.jobInfo['InitialStatus']=('Suspended' if self.submitAsSuspended
                 else 'Active')
         self.setOutputFilenames(job, layer=layer, camera=camera)
