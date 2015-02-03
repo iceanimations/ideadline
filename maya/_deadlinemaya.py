@@ -608,7 +608,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             self._submitSceneFile = priority
 
         if chunkSize is None:
-            self._chunkSize='none'
+            self._chunkSize=15
         else:
             self._chunkSize=chunkSize
 
