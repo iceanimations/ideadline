@@ -128,7 +128,6 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
             raise DeadlineMayaException, 'Deadline not in path'
 
         initScript = self.getDeadlineScript(False)
-        print initScript
 
         try:
             pc.mel.source(initScript.replace("\\", "\\\\"))
@@ -667,7 +666,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
         cameraname = camera.firstParent2() if camera else ''
 
-        job.jobInfo['Name']=(self.jobName + 
+        job.jobInfo['Name']=(self.jobName +
                 ((" - layer - " + layername ) if self.submitEachRenderLayer
                     else '') +
                 ((" - cam - "  + cameraname ) if self.submitEachCamera
@@ -698,7 +697,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['ImageHeight'] = resolution[1]
         pi['OutputFilePath'] = op.normpath(self.outputPath).replace('\\', '/')
         pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
-        pi['Camera']=camera if camera is not None else ''
+        pi['Camera']=camera.name() if camera is not None else ''
         self.setCameras(job)
 
         job.scene=op.normpath(self.sceneFile).replace('\\', '/')
