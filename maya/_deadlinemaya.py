@@ -626,16 +626,23 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             imaya.setCurrentRenderLayer(layer)
             camera = self.camera
             if not camera:
-                rencamlist = imaya.getCameras(True, True)
-                if not rencamlist:
-                    rencamlist = imaya.getCameras(True, False)
+                # get all renderable cameras
+                rencamlist = imaya.getCameras(True, False, True)
                 if len(rencamlist) == 1:
                     camera = rencamlist[0]
-                if len(rencamlist) == 0:
-                    camera = imaya.getCameras(False, False)[0]
+                elif not rencamlist:
+                    # give preference to 3d and added
+                    rencamlist = imaya.getCameras(False, True, False)
+                    if not rencamlist:
+                        # dont ignore startups
+                        rencamlist = imaya.getCameras(False, False, False)
+                    if not rencamlist:
+                        # get everything
+                        rencamlist = imaya.getCamera(False, False, True)
+                    camera = rencamlist[0]
             cams = [camera]
             if self.submitEachCamera:
-                cams = imaya.getCameras(True, self.ignoreDefaultCameras)
+                cams = imaya.getCameras(True, self.ignoreDefaultCameras, True)
             for cam in cams:
                 self._jobs.append(self.createJob(layer, cam))
         return self._jobs
