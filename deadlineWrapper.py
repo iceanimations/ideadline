@@ -238,7 +238,6 @@ def jobFilter(command, filters=[]):
     if not filters:
         raise DeadlineWrapperException, "No Filters were provided"
     filterargs = ["%s=%s"%(fil) for fil in filters]
-    print filterargs
     return getItemsFromOutput(deadlineCommand(command, *filterargs))
 
 

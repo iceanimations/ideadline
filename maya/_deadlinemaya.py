@@ -128,7 +128,6 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
             raise DeadlineMayaException, 'Deadline not in path'
 
         initScript = self.getDeadlineScript(False)
-        print initScript
 
         try:
             pc.mel.source(initScript.replace("\\", "\\\\"))
@@ -459,9 +458,9 @@ class DeadlineMayaJob(object):
             if line.startswith('Submitting to Repository:'):
                 self.repository = line.split(':')[1].strip()
             if line.startswith('Result='):
-                self.result = line.split('=')[1]
+                self.result = line.split('=')[1].strip()
             if line.startswith('JobID='):
-                self.jobId = line.split('=')[1]
+                self.jobId = line.split('=')[1].strip()
         splits = output.split("Output:")
         if len(splits) > 2:
             self.errorString = splits[-1].strip()
@@ -608,7 +607,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             self._submitSceneFile = priority
 
         if chunkSize is None:
-            self._chunkSize='none'
+            self._chunkSize=15
         else:
             self._chunkSize=chunkSize
 
@@ -624,15 +623,25 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             layers = imaya.getRenderLayers()
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
-            if not self.camera:
-                rencamlist = imaya.getCameras()
+            camera = self.camera
+            if not camera:
+                # get all renderable cameras
+                rencamlist = imaya.getCameras(True, False, True)
                 if len(rencamlist) == 1:
-                    self.camera = rencamlist[0]
-                if len(rencamlist) == 0:
-                    self.camera = imaya.getCameras(False, False)[0]
-            cams = [self.camera]
+                    camera = rencamlist[0]
+                elif not rencamlist:
+                    # give preference to 3d and added
+                    rencamlist = imaya.getCameras(False, True, False)
+                    if not rencamlist:
+                        # dont ignore startups
+                        rencamlist = imaya.getCameras(False, False, False)
+                    if not rencamlist:
+                        # get everything
+                        rencamlist = imaya.getCamera(False, False, True)
+                    camera = rencamlist[0]
+            cams = [camera]
             if self.submitEachCamera:
-                cams = imaya.getCameras(True, self.ignoreDefaultCameras)
+                cams = imaya.getCameras(True, self.ignoreDefaultCamera, True)
             for cam in cams:
                 self._jobs.append(self.createJob(layer, cam))
         return self._jobs
@@ -652,11 +661,16 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
         job.submitSceneFile = self.submitSceneFile
 
-        job.jobInfo['Name']=(self.jobName + 
-                ((" - layer - " + layer ) if (self.submitEachRenderLayer and
-                        len(imaya.getRenderLayers())) > 1 else '') +
-                ((" - cam - "  + camera   ) if (self.submitEachCamera  and
-                        len(imaya.getRenderLayers())) > 1 else ''))
+        layername = (layer.name() if layer.name() != "defaultRenderLayer" else
+                "masterLayer")
+
+        cameraname = camera.firstParent2() if camera else ''
+
+        job.jobInfo['Name']=(self.jobName +
+                ((" - layer - " + layername ) if self.submitEachRenderLayer
+                    else '') +
+                ((" - cam - "  + cameraname ) if self.submitEachCamera
+                    else ''))
         job.jobInfo['Comment']=self.comment
         job.jobInfo['Pool']=self.pool
         job.jobInfo['Department']=self.department
@@ -683,7 +697,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['ImageHeight'] = resolution[1]
         pi['OutputFilePath'] = op.normpath(self.outputPath).replace('\\', '/')
         pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
-        pi['Camera']=camera if camera is not None else ''
+        pi['Camera']=str(camera) if camera is not None else ''
         self.setCameras(job)
 
         job.scene=op.normpath(self.sceneFile).replace('\\', '/')
