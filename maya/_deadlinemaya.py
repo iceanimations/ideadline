@@ -458,9 +458,9 @@ class DeadlineMayaJob(object):
             if line.startswith('Submitting to Repository:'):
                 self.repository = line.split(':')[1].strip()
             if line.startswith('Result='):
-                self.result = line.split('=')[1]
+                self.result = line.split('=')[1].strip()
             if line.startswith('JobID='):
-                self.jobId = line.split('=')[1]
+                self.jobId = line.split('=')[1].strip()
         splits = output.split("Output:")
         if len(splits) > 2:
             self.errorString = splits[-1].strip()
@@ -697,7 +697,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['ImageHeight'] = resolution[1]
         pi['OutputFilePath'] = op.normpath(self.outputPath).replace('\\', '/')
         pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
-        pi['Camera']=camera.name() if camera is not None else ''
+        pi['Camera']=str(camera) if camera is not None else ''
         self.setCameras(job)
 
         job.scene=op.normpath(self.sceneFile).replace('\\', '/')
