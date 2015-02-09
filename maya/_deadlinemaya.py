@@ -624,13 +624,16 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             layers = imaya.getRenderLayers()
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
-            if not self.camera:
-                rencamlist = imaya.getCameras()
+            camera = self.camera
+            if not camera:
+                rencamlist = imaya.getCameras(True, True)
+                if not rencamlist:
+                    rencamlist = imaya.getCameras(True, False)
                 if len(rencamlist) == 1:
-                    self.camera = rencamlist[0]
+                    camera = rencamlist[0]
                 if len(rencamlist) == 0:
-                    self.camera = imaya.getCameras(False, False)[0]
-            cams = [self.camera]
+                    camera = imaya.getCameras(False, False)[0]
+            cams = [camera]
             if self.submitEachCamera:
                 cams = imaya.getCameras(True, self.ignoreDefaultCameras)
             for cam in cams:
