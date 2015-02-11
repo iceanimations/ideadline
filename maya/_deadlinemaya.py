@@ -687,7 +687,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['UsingRenderLayers']=1 if len(imaya.getRenderLayers(
             renderableOnly=False)) > 1 else 0
         pi['RenderLayer']=layer if layer is not None else ''
-        pi['localRendering']=int(self.localRendering)
+        pi['LocalRendering']=int(self.localRendering)
         pi['StrictErrorChecking']=int(self.strictErrorChecking)
         pi['Version']=imaya.maya_version()
         pi['Build']=imaya.getBitString()

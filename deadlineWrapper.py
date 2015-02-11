@@ -117,7 +117,8 @@ def getItemsFromOutput(output):
     return items
 
 
-matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains']
+matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains', 'startswith',
+        'not startswith', 'endswith', 'not endswith']
 def matchValue(itemval, filterval, method=matchMethods[0]):
     if method == matchMethods[0]:
         return itemval == filterval
@@ -129,6 +130,14 @@ def matchValue(itemval, filterval, method=matchMethods[0]):
         return itemval not in filterval
     elif method == matchMethods[4]:
         return filterval not in itemval
+    elif method == matchMethods[5]:
+        return itemval.startswith(filterval)
+    elif method == matchMethods[6]:
+        return not itemval.startswith(filterval)
+    elif method == matchMethods[7]:
+        return itemval.endswith(filterval)
+    elif method == matchMethods[8]:
+        return not itemval.endswith(filterval)
     else:
         raise DeadlineWrapperException, "Unknown filter type"
 
@@ -155,7 +164,7 @@ def filterItems(items, filters=[], match_any=True):
                     itemval = item
                     if itemIsDict and hasattr(item, "title"):
                         itemval=item.title
-                    matchValue(itemval, fil[1], fil[0])
+                    match = matchValue(itemval, fil[1], fil[0])
                 elif itemIsDict:
                     key, value = fil
                     match = matchValue(item.get(key), value)
