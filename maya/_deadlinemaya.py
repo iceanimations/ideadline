@@ -616,6 +616,9 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._pool=pool
 
+    def configure(self):
+        return True
+
     def createJobs(self):
         self._jobs=[]
         layers = [None]
@@ -623,6 +626,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             layers = imaya.getRenderLayers()
         for layer in layers:
             imaya.setCurrentRenderLayer(layer)
+            self._currentLayer = layer
             camera = self.camera
             if not camera:
                 # get all renderable cameras
@@ -643,15 +647,21 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             if self.submitEachCamera:
                 cams = imaya.getCameras(True, self.ignoreDefaultCamera, True)
             for cam in cams:
-                self._jobs.append(self.createJob(layer, cam))
+                self._currentCamera = cam
+                if self.configure():
+                    self._jobs.append(self.createJob())
         return self._jobs
 
     def createJob(self, layer=None, camera=None):
         '''create one job'''
         if layer is not None:
             layer = pc.nt.RenderLayer(layer)
+        else:
+            layer = self._currentLayer
         if camera is not None:
             camera = pc.nt.Camera(camera)
+        else:
+            camera = self._currentCamera()
 
         if layer.isReferenced():
             raise DeadlineMayaException, (
