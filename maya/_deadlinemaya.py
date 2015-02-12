@@ -664,7 +664,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         if camera is not None:
             camera = pc.nt.Camera(camera)
         else:
-            camera = self._currentCamera()
+            camera = self._currentCamera
 
         if layer.isReferenced():
             raise DeadlineMayaException, (
