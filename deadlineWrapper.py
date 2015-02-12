@@ -17,10 +17,10 @@ _jobFilters = [ 'getJobsFilterAnd', 'getJobsFilterIniAnd',
 
 
 __all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
-        "filterItems", "deadlineCommand", "jobFilter",
-        "getRepositoryRoot", "getRepositoryRoots", "cycleRepository", "changeRepository",
-        "getCurrentUserHomeDirectory", "getJob", "getJobs", "getJobIds",
-        "pools"
+        "filterItems", "deadlineCommand", "jobFilter", "matchValue",
+        "matchMethods", "getRepositoryRoot", "getRepositoryRoots",
+        "cycleRepository", "changeRepository", "getCurrentUserHomeDirectory",
+        "getJob", "getJobs", "getJobIds", "pools"
         ] + _jobFilters
 
 
