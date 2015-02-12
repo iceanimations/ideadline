@@ -616,6 +616,9 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._pool=pool
 
+        self._currentLayer = ''
+        self._currentCamera = ''
+
     def configure(self):
         return True
 
