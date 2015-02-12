@@ -2,6 +2,7 @@ import subprocess
 import os
 from collections import Iterable, OrderedDict
 from functools import partial
+import re
 
 
 import sys
@@ -118,7 +119,7 @@ def getItemsFromOutput(output):
 
 
 matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains', 'startswith',
-        'not startswith', 'endswith', 'not endswith']
+        'not startswith', 'endswith', 'not endswith', 'matches', 'not matches']
 def matchValue(itemval, filterval, method=matchMethods[0]):
     if method == matchMethods[0]:
         return itemval == filterval
@@ -138,6 +139,10 @@ def matchValue(itemval, filterval, method=matchMethods[0]):
         return itemval.endswith(filterval)
     elif method == matchMethods[8]:
         return not itemval.endswith(filterval)
+    elif method == matchMethods[9]:
+        return bool(re.match(filterval, itemval))
+    elif method == matchMethods[10]:
+        return not bool(re.match(filterval, itemval))
     else:
         raise DeadlineWrapperException, "Unknown filter type"
 
