@@ -749,7 +749,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
                 step = frameRange[2]
 
             frames = "%d-%d"%(int(start), int(finish))
-            frames += 'x%d'%int(byframe)
+            frames += 'x%d'%int(step)
         job.jobInfo['Frames']=frames
 
     def setOutputFilenames(self, job, layer=None, camera=None):
