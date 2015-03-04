@@ -738,10 +738,16 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     def setJobFrames(self, job):
         frames = self._frames
         if frames is None:
-            start, finish, byframe = ( self._frameStart, self._frameEnd,
-                    self._frameStep )
-            if start is None or finish is None or byframe is None:
-                start, finish, byframe = imaya.getFrameRange()
+            start, finish, step = ( self._frameStart, self._frameEnd,
+                    self.frameStep )
+            frameRange = imaya.getFrameRange()
+
+            if start is None or finish is None:
+                start = frameRange[0]
+                finish = frameRange[1]
+            if step is None:
+                step = frameRange[2]
+
             frames = "%d-%d"%(int(start), int(finish))
             frames += 'x%d'%int(byframe)
         job.jobInfo['Frames']=frames
