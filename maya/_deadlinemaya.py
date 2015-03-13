@@ -635,7 +635,11 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         if self.submitEachRenderLayer:
             layers = imaya.getRenderLayers()
         for layer in layers:
-            imaya.setCurrentRenderLayer(layer)
+            try:
+                imaya.setCurrentRenderLayer(layer)
+            except RuntimeError:
+                #fault layer ... skip
+                continue
             self._currentLayer = layer
             camera = self.camera
             if not camera:
