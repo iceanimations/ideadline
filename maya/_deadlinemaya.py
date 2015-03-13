@@ -521,7 +521,8 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             submitEachCamera=None, ignoreDefaultCamera=None, outputPath=None,
             strictErrorChecking=None, localRendering=None, sceneFile=None,
             pool=None, submitAsSuspended=None, priority=None,
-            submitSceneFile=None, chunkSize=None):
+            submitSceneFile=None, chunkSize=None, frames=None, frameStart=None,
+            frameEnd=None, frameStep=None, resolution=None):
 
         if jobName is None:
             self._jobName = mc.file(q=True, sceneName=True)
@@ -616,6 +617,12 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         else:
             self._pool=pool
 
+        self.frameStart = frameStart
+        self.frameEnd = frameEnd
+        self.frameStep  = frameStep
+        self.frames = frames
+        self.resolution = resolution
+
         self._currentLayer = ''
         self._currentCamera = ''
 
@@ -628,7 +635,11 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         if self.submitEachRenderLayer:
             layers = imaya.getRenderLayers()
         for layer in layers:
-            imaya.setCurrentRenderLayer(layer)
+            try:
+                imaya.setCurrentRenderLayer(layer)
+            except RuntimeError:
+                #fault layer ... skip
+                continue
             self._currentLayer = layer
             camera = self.camera
             if not camera:
@@ -692,7 +703,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
                 else 'Active')
         job.jobInfo['ChunkSize'] = self.chunkSize
         self.setOutputFilenames(job, layer=layer, camera=camera)
-        self.setFrames(job)
+        self.setJobFrames(job)
 
         pi = job.pluginInfo
         pi['Animation']=int(imaya.isAnimationOn())
@@ -705,17 +716,22 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         pi['Version']=imaya.maya_version()
         pi['Build']=imaya.getBitString()
         pi['ProjectPath']=op.normpath(self.projectPath).replace('\\', '/')
-        resolution = imaya.getResolution()
-        pi['ImageWidth'] = resolution[0]
-        pi['ImageHeight'] = resolution[1]
         pi['OutputFilePath'] = op.normpath(self.outputPath).replace('\\', '/')
         pi['OutputFilePrefix'] = imaya.getImageFilePrefix().replace('\\', '/')
         pi['Camera']=str(camera) if camera is not None else ''
+        self.setJobResolution(job)
         self.setCameras(job)
 
         job.scene=op.normpath(self.sceneFile).replace('\\', '/')
 
         return job
+
+    def setJobResolution(self, job):
+        resolution = self.resolution
+        if not resolution:
+            resolution = imaya.getResolution()
+        job.pluginInfo['ImageWidth'] = resolution[0]
+        job.pluginInfo['ImageHeight'] = resolution[-1]
 
     def setCameras(self, job):
         cams = imaya.getCameras(False, False)
@@ -723,10 +739,21 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             key = 'Camera' + str(idx + 1)
             job.pluginInfo[key]=str(cam)
 
-    def setFrames(self, job):
-        start, finish, byframe = imaya.getFrameRange()
-        frames = "%d-%d"%(int(start), int(finish))
-        frames += 'x%d'%int(byframe)
+    def setJobFrames(self, job):
+        frames = self._frames
+        if frames is None:
+            start, finish, step = ( self._frameStart, self._frameEnd,
+                    self.frameStep )
+            frameRange = imaya.getFrameRange()
+
+            if start is None or finish is None:
+                start = frameRange[0]
+                finish = frameRange[1]
+            if step is None:
+                step = frameRange[2]
+
+            frames = "%d-%d"%(int(start), int(finish))
+            frames += 'x%d'%int(step)
         job.jobInfo['Frames']=frames
 
     def setOutputFilenames(self, job, layer=None, camera=None):
@@ -862,6 +889,38 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         def getChunkSize(self):
             return self._chunkSize
         chunkSize=property(getChunkSize, setChunkSize)
+
+        def setFrameStart(self, val):
+            self._frameStart = val
+        def getFrameStart(self):
+            return self._frameStart
+        frameStart = property(getFrameStart, setFrameStart)
+
+        def setFrameEnd(self, val):
+            self._frameEnd = val
+        def getFrameEnd(self):
+            return self._frameEnd
+        frameEnd = property(getFrameEnd, setFrameEnd)
+
+        def setFrameStep(self, val):
+            self._frameStep  = val
+        def getFrameStep(self):
+            return self._frameStep 
+        frameStep  = property(getFrameStep, setFrameStep )
+
+        def setFrames(self, val):
+            self._frames = val
+        def getFrames(self):
+            return self._frames
+        frames = property(getFrames, setFrames)
+
+        def setResolution(self, val):
+            self._resolution = val
+        def getResolution(self):
+            return self._resolution
+        resolution = property(getResolution, setResolution)
+
+
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()
