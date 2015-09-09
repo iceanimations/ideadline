@@ -630,6 +630,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
         return True
 
     def createJobs(self):
+        self.configure()
         self._jobs=[]
         layers = [None]
         if self.submitEachRenderLayer:
