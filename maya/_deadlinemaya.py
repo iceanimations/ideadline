@@ -16,7 +16,6 @@ reload(imaya)
 findUIObjectByLabel = imaya.findUIObjectByLabel
 
 from .. import deadlineWrapper as dl
-reload(dl)
 
 
 class DeadlineMayaException(dl.DeadlineWrapperException):
