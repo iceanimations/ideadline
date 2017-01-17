@@ -3,6 +3,7 @@ import os
 from collections import Iterable, OrderedDict
 from functools import partial
 import re
+import cStringIO
 
 
 import sys
@@ -54,9 +55,187 @@ def setBinPath(binPath=None):
 
 setBinPath()
 
-
 class DeadlineWrapperException(Exception):
     pass
+
+class DeadlineAttr(object):
+    '''Attribute for job and plugin Info'''
+
+    def __init__(self, key, default, attr_type=None):
+        self.key = key
+        self.default = default
+        self.attr_type = attr_type
+        self.checkValue(default)
+
+    def checkValue(self, value):
+        if self.attr_type is not None and not isinstance(self.default,
+                self.attr_type):
+            raise TypeError, 'value must be of type: %r' % self.attr_type
+
+    def __get__(self, instance, owner=None):
+        ':type instance: Info'
+        return instance.get(self.key, self.default)
+
+    def __set__(self, instance, value):
+        ':type instance: Info'
+        self.checkValue(value)
+        instance[self.key]=value
+
+class DeadlineInfo(OrderedDict):
+    ''' Deadline Info '''
+    def __init__(self, *args, **kwargs):
+        super(DeadlineInfo, self).__init__(*args, **kwargs)
+        for val in self.__class__.__dict__.itervalues():
+            if isinstance(val, DeadlineAttr) and not self.has_key(val.key):
+                self[val.key]=val.default
+
+    def toString(self):
+        output = cStringIO.StringIO()
+        for key, value in self.iteritems():
+            print >>output, "%s=%s"%(str(key), str(value).replace('\\', '/'))
+        return output.getvalue()
+
+    def readFromString(self, fromString):
+        if not isinstance(fromString, basestring):
+            raise TypeError, "Only string are expected"
+        for line in fromString.splitlines(True):
+            splits = line.split('=')
+            if len(splits) < 2:
+                continue
+            self[splits[0]] = splits[1]
+
+    def readFromFile(self, filename):
+        with open('filename') as inputFile:
+            self.readFromString(inputFile.read())
+
+    def writeToFile(self, filename):
+        with open('filename', 'w') as outputfile:
+            outputfile.write(self.toString())
+
+class DeadlineJobInfo(DeadlineInfo):
+    plugin = DeadlineAttr('Plugin', 'MayaBatch', str)
+    name = DeadlineAttr('Name', '', str)
+    comment = DeadlineAttr('Comment', '', str)
+    pool = DeadlineAttr('Pool', 'none', str)
+    machineLimit = DeadlineAttr('MachineLimit', 0, int)
+    priority = DeadlineAttr('Priority', 25, int)
+    onJobComplete = DeadlineAttr('OnJobComplete', 'Nothing', str)
+    taskTimeoutMinutes = DeadlineAttr('TaskTimeoutMinutes', 0, int)
+    minRenderTimeoutMinutes = DeadlineAttr('MinRenderTimeMinutes', 0, int)
+    concurrentTasks = DeadlineAttr('ConcurrentTasks', 1, int)
+    department = DeadlineAttr('Department', '', str)
+    group = DeadlineAttr('Group', '', str)
+    limitGroups = DeadlineAttr('LimitGroups', '', str)
+    jobDependencies = DeadlineAttr('JobDependencies', '', str)
+    initialStatus = DeadlineAttr('InitialStatus', 'Active', str)
+    outputFilename0 = DeadlineAttr('OutputFilename0', '', str)
+    frames = DeadlineAttr('Frames', '1-48', str)
+    chunkSize = DeadlineAttr('ChunkSize', '25', str)
+
+class DeadlinePluginInfo(DeadlineInfo):
+    pass
+
+class DeadlineJob(object):
+    jobInfo = None
+    pluginInfo = None
+    submitSceneFile = False
+    jobId = None
+    result = None
+    errorString = None
+    exitStatus = None
+    submitOnlyOnce = True
+    output = None
+    scene = None
+
+    pluginInfoFilename = None
+    jobInfoFilename = None
+
+    exception = DeadlineWrapperException
+    pluginInfoClass = DeadlinePluginInfo
+
+    def __init__(self, jobInfo=None, pluginInfo=None, scene=None,
+            submitSceneFile=False, submitOnlyOnce=True):
+        if jobInfo is None:
+            self.jobInfo = DeadlineJobInfo()
+        if pluginInfo is None:
+            self.pluginInfo = self.pluginInfoClass()
+        self.scene = scene
+        self.submitSceneFile = submitSceneFile
+        self.submitOnlyOnce = submitOnlyOnce
+
+    _repository = None
+    def repository():
+        doc = "The repository for job submission property"
+        def fget(self):
+            return self._repository
+        def fset(self, value):
+            self._repository = value
+            if not value:
+                self.pluginInfo.pop('NetworkRoot')
+            if value is not None:
+                self.pluginInfo['NetworkRoot']=value
+        return locals()
+    repository = property(**repository())
+
+    def copy(self):
+        job = self.__class__(jobInfo=self.jobInfo.copy(),
+                pluginInfo=self.pluginInfo.copy(), scene=self.scene,
+                submitSceneFile=self.submitSceneFile,
+                submitOnlyOnce=self.submitOnlyOnce )
+        return job
+
+    def parseSubmissionOutput(self, output=None):
+        if output:
+            self.output = output
+        if not self.output:
+            return
+        output = self.output
+        for line in output.splitlines(True):
+            if 'exit status' in line:
+                self.exitStatus = int(line.split('exit status')[-1].split()[0])
+            if line.startswith('Submitting to Repository:'):
+                self.repository = line.split(':')[1].strip()
+            if line.startswith('Result='):
+                self.result = line.split('=')[1].strip()
+            if line.startswith('JobID='):
+                self.jobId = line.split('=')[1].strip()
+        splits = output.split("Output:")
+        if len(splits) > 2:
+            self.errorString = splits[-1].strip()
+
+    def submit(self):
+        ''' submit job '''
+        if self.jobId and self.submitOnlyOnce:
+            raise self.exception, ("Job Already Submitted ... try"
+                    "job.copy().submit()")
+
+            if not self.scene:
+                pass
+
+        if self.repository:
+            self.pluginInfo['NetworkRoot']=self.repository
+
+        tempdir = os.path.join(getCurrentUserHomeDirectory(), "Temp")
+        self.jobInfoFilename = os.path.join(tempdir, "jobInfo.job")
+        self.pluginInfoFilename= os.path.join(tempdir, "pluginInfo.job")
+
+        with open(self.jobInfoFilename, "w") as infoFile:
+            infoFile.write(self.jobInfo.toString())
+        with open(self.pluginInfoFilename, "w") as infoFile:
+            infoFile.write(self.pluginInfo.toString())
+
+        try:
+            commandargs = [self.jobInfoFilename, self.pluginInfoFilename]
+            if self.submitSceneFile:
+                commandargs.append(self.scene)
+            self.output = deadlineCommand(*commandargs)
+        except DeadlineWrapperException as e:
+            self.output = e.message
+            raise DeadlineWrapperException, "Error Submitting Job\n" + e.message
+
+        self.parseSubmissionOutput()
+
+        return self.jobId
 
 
 def deadlineCommand(command, *args, **kwargs):
@@ -87,7 +266,6 @@ def deadlineCommand(command, *args, **kwargs):
 
     return output
 
-
 def getItemsFromOutput(output):
     items = []
     currentItem = OrderedDict()
@@ -117,7 +295,6 @@ def getItemsFromOutput(output):
 
     return items
 
-
 matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains', 'startswith',
         'not startswith', 'endswith', 'not endswith', 'matches', 'not matches']
 def matchValue(itemval, filterval, method=matchMethods[0]):
@@ -145,7 +322,6 @@ def matchValue(itemval, filterval, method=matchMethods[0]):
         return not bool(re.match(filterval, itemval))
     else:
         raise DeadlineWrapperException, "Unknown filter type"
-
 
 def filterItems(items, filters=[], match_any=True):
     ''' filter items on bases of the provided filters '''
@@ -188,10 +364,8 @@ def filterItems(items, filters=[], match_any=True):
 
     return filtered
 
-
 def getStatus():
     return os.path.exists(__deadlineCmdPath__)
-
 
 def pools():
     return getItemsFromOutput(deadlineCommand("Pools"))
@@ -210,22 +384,21 @@ def changeRepository(repo):
     '''Display all repository roots in the Deadline config file'''
     deadlineCommand("ChangeRepository", repo)
 
-
 def getCurrentUserHomeDirectory():
     '''Display all repository roots in the Deadline config file'''
     return deadlineCommand("GetCurrentUserHomeDirectory").strip()
 
+def executeScript(script):
+    return deadlineCommand("ExecuteScript", script)
 
 def getJobIds():
     '''Displays all the job IDs'''
     return getItemsFromOutput(deadlineCommand("GetJobIds"))
 
-
 def getJobs(useIniDisplay=False):
     '''Displays information for all the jobs'''
     useIniDisplay = bool(useIniDisplay)
     return getItemsFromOutput(deadlineCommand("GetJobs", str(useIniDisplay)))
-
 
 def getJob(jobIds, useIniDisplay=False):
     '''Display information for the job'''
@@ -239,7 +412,6 @@ def getJob(jobIds, useIniDisplay=False):
         return getItemsFromOutput(deadlineCommand(",".join(jobIds),
             useIniDisplay))
 
-
 def cycleRepository():
     roots = getRepositoryRoots()
     if not roots:
@@ -247,18 +419,15 @@ def cycleRepository():
     changeRepository(roots[-1])
     return roots[-1]
 
-
 def jobFilter(command, filters=[]):
     if not filters:
         raise DeadlineWrapperException, "No Filters were provided"
     filterargs = ["%s=%s"%(fil) for fil in filters]
     return getItemsFromOutput(deadlineCommand(command, *filterargs))
 
-
 for fil in _jobFilters:
     func = partial(jobFilter, fil)
     setattr(sys.modules[__name__], fil, func)
-
 
 if __name__ == '__main__':
     print cycleRepository()

@@ -4,9 +4,7 @@ import os
 import re
 import getpass
 import maya.cmds as mc
-import cStringIO
 from abc import ABCMeta, abstractproperty, abstractmethod
-from collections import OrderedDict
 
 op = os.path
 
@@ -15,12 +13,12 @@ import imaya
 reload(imaya)
 findUIObjectByLabel = imaya.findUIObjectByLabel
 
-from .. import deadlineWrapper as dl
+from ..deadlineWrapper import ( DeadlinePluginInfo, DeadlineJob,
+        DeadlineWrapperException, DeadlineAttr, getStatus, getRepositoryRoot,
+        changeRepository )
 
-
-class DeadlineMayaException(dl.DeadlineWrapperException):
+class DeadlineMayaException(DeadlineWrapperException):
     pass
-
 
 class DeadlineMayaSubmitterBase(object):
     ''' Base class for deadline
@@ -48,7 +46,7 @@ class DeadlineMayaSubmitterBase(object):
         if projectPath: self.projectPath = projectPath
         if camera: self.camera = camera
 
-        if not dl.getStatus():
+        if not getStatus():
             raise DeadlineMayaException, "Deadline has negative status"
 
         self._repo=None
@@ -57,7 +55,7 @@ class DeadlineMayaSubmitterBase(object):
         elif isinstance(repo, basestring):
             self._repo = repo
         else:
-            repo = dl.getRepositoryRoot()
+            repo = getRepositoryRoot()
             if repo:
                 self._repo = repo
 
@@ -87,7 +85,6 @@ class DeadlineMayaSubmitterBase(object):
     def setRepo(self, value):
         self._repo = value
     repo = property(getRepo, setRepo)
-
 
 class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     ''' Deadline Maya ui must only have one instance '''
@@ -123,7 +120,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
         if projectPath: self.projectPath = projectPath
         if camera: self.camera = camera
 
-        if not dl.getStatus():
+        if not getStatus():
             raise DeadlineMayaException, 'Deadline not in path'
 
         initScript = self.getDeadlineScript(False)
@@ -145,7 +142,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     def getDeadlineScript(self, submitScript=True):
         repo = self._repo
         if not repo:
-            repo = dl.getRepositoryRoot()
+            repo = getRepositoryRoot()
         script = os.path.join(repo, "clientSetup", "Maya",
                 "SubmitMayaToDeadline.mel" if submitScript else
                 "InitDeadlineSubmitter.mel" )
@@ -189,10 +186,10 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
     def submitRender(self, close=True):
         old_repo = None
         if self._repo:
-            cur_repo = dl.getRepositoryRoot()
+            cur_repo = getRepositoryRoot()
             if not self._repo == cur_repo:
                 old_repo = cur_repo
-                dl.changeRepository(self._repo)
+                changeRepository(self._repo)
 
 
         if not DeadlineMayaSubmitterUI._deadlineWinExists():
@@ -205,7 +202,7 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
             self.closeSubmissionWindow()
 
         if old_repo:
-            dl.changeRepository(old_repo)
+            changeRepository(old_repo)
 
     def hideAndDisableUIElements(self):
         ''' Enable disable unrelated components
@@ -338,98 +335,35 @@ class DeadlineMayaSubmitterUI(DeadlineMayaSubmitterBase):
         localRendering = property(fget=getLocalRendering,
                 fset=setLocalRendering)
 
+class DeadlineMayaPluginInfo(DeadlinePluginInfo):
+    Animation=DeadlineAttr( 'Animation',1, int )
+    Renderer=DeadlineAttr( 'Renderer', 'arnold', str )
+    UsingRenderLayers=DeadlineAttr( 'UsingRenderLayers', 1, int )
+    RenderLayer=DeadlineAttr( 'RenderLayer', '', str )
+    RenderHalfFrames=DeadlineAttr( 'RenderHalfFrames', 0, int )
+    LocalRendering=DeadlineAttr( 'LocalRendering', 0, int )
+    StrictErrorChecking=DeadlineAttr( 'StrictErrorChecking', 0, int )
+    MaxProcessors=DeadlineAttr( 'MaxProcessors', 0, int )
+    Version=DeadlineAttr( 'Version', '2015', str )
+    Build=DeadlineAttr( 'Build', '64bit', str )
+    ProjectPath=DeadlineAttr( 'ProjectPath', '', str )
+    ImageWidth=DeadlineAttr( 'ImageWidth', 1920, int )
+    ImageHeight=DeadlineAttr( 'ImageHeight', 1080, int )
+    OutputFilePath=DeadlineAttr( 'OutputFilePath', '', str )
+    OutputFilePrefix=DeadlineAttr( 'OutputFilePrefix', '', str )
+    Camera=DeadlineAttr( 'Camera', '', str )
+    Camera0=DeadlineAttr( 'Camera0', '', str )
+    SceneFile=DeadlineAttr( 'SceneFile', '', str )
+    IgnoreError211=DeadlineAttr( 'IgnoreError211', 0, int )
 
-class DeadlineInfo(OrderedDict):
-    ''' Deadline Info '''
-
-    def toString(self):
-        output = cStringIO.StringIO()
-        for key, value in self.iteritems():
-            print >>output, "%s=%s"%(str(key), str(value).replace('\\', '/'))
-        return output.getvalue()
-
-    def readFromString(self, fromString):
-        if not isinstance(fromString, basestring):
-            raise TypeError, "Only string are expected"
-        for line in fromString.splitlines(True):
-            splits = line.split('=')
-            if len(splits) < 2:
-                continue
-            self[splits[0]] = splits[1]
-
-    def readFromFile(self, filename):
-        with open('filename') as inputFile:
-            self.readFromString(inputFile.read())
-
-    def writeToFile(self, filename):
-        with open('filename', 'w') as outputfile:
-            outputfile.write(self.toString())
-
-
-class DeadlineJobInfo(DeadlineInfo):
-    def __init__(self, *args, **kwargs):
-        super(DeadlineJobInfo, self).__init__(*args, **kwargs)
-        self['Plugin']='MayaBatch'
-        self['Name']=''
-        self['Comment']=''
-        self['Pool']='none'
-        self['MachineLimit']=0
-        self['Priority']=25
-        self['OnJobComplete']='Nothing'
-        self['TaskTimeoutMinutes']=0
-        self['MinRenderTimeMinutes']=0
-        self['ConcurrentTasks']=1
-        self['Department']=''
-        self['Group']='none'
-        self['LimitGroups']=''
-        self['JobDependencies']=''
-        self['InitialStatus']='Active'
-        self['OutputFilename0']=''
-        self['Frames']='1-48'
-        self['ChunkSize']='15'
-
-
-class DeadlineMayaPluginInfo(DeadlineInfo):
-    def __init__(self, *args, **kwargs):
-        super(DeadlineMayaPluginInfo, self).__init__(*args, **kwargs)
-        self['Animation']=1
-        self['Renderer']='arnold'
-        self['UsingRenderLayers']=1
-        self['RenderLayer']=''
-        self['RenderHalfFrames']=0
-        self['LocalRendering']=0
-        self['StrictErrorChecking']=0
-        self['MaxProcessors']=0
-        self['Version']='2015'
-        self['Build']='64bit'
-        self['ProjectPath']=''
-        self['ImageWidth']=1920
-        self['ImageHeight']=1080
-        self['OutputFilePath']=''
-        self['OutputFilePrefix']=''
-        self['Camera']=''
-        self['Camera0']=''
-        self['SceneFile']=''
-        self['IgnoreError211']=0
-
-
-class DeadlineMayaJob(object):
+class DeadlineMayaJob(DeadlineJob):
     ''' Submit Maya Job as rendered '''
 
-    jobInfo = None
-    pluginInfo = None
-    jobId = None
-    result = None
-    errorString = None
-    exitStatus = None
-    submitOnlyOnce = True
-    _repository = None
-    output = None
-    submitSceneFile = False
+    exception = DeadlineMayaException
+    pluginInfoClass = DeadlineMayaPluginInfo
 
     def __init__(self, *args, **kwargs):
-        self.jobInfo = DeadlineJobInfo()
-        self.pluginInfo = DeadlineMayaPluginInfo()
+        super(DeadlineMayaJob, self).__init__(*args, **kwargs)
         self.scene = mc.file(q=True, location=True)
 
     def setScene(self, scene):
@@ -439,81 +373,68 @@ class DeadlineMayaJob(object):
         return self.pluginInfo["SceneFile"]
     scene = property(fget=getScene, fset=setScene)
 
-    def copy(self):
-        ''' Create a new object with the same values'''
-        job = DeadlineMayaJob()
-        job.jobInfo = self.jobInfo.copy()
-        job.pluginInfo = self.jobInfo.copy()
+class DeadlineSubmitterAttr(object):
+    def __init__(self, attr_name, default=None, attr_type=None, range=None):
+        ''':type attr_name: str'''
+        if not attr_name.startswith('_'):
+            attr_name = '_' + attr_name
+        for char in ' .\\;,%&|<>\n\t\b':
+            attr_name = attr_name.replace(char, '_')
+        self.attr_name = attr_name
+        self.attr_type = attr_type
+        self.range = range
+        if default is None or self.checkValue(default):
+            self.default = default
+        else:
+            self.default = None
 
-    def parseSubmissionOutput(self, output=None):
-        if output:
-            self.output = output
-        if not self.output:
-            return
-        output = self.output
-        for line in output.splitlines(True):
-            if 'exit status' in line:
-                self.exitStatus = int(line.split('exit status')[-1].split()[0])
-            if line.startswith('Submitting to Repository:'):
-                self.repository = line.split(':')[1].strip()
-            if line.startswith('Result='):
-                self.result = line.split('=')[1].strip()
-            if line.startswith('JobID='):
-                self.jobId = line.split('=')[1].strip()
-        splits = output.split("Output:")
-        if len(splits) > 2:
-            self.errorString = splits[-1].strip()
+    def checkValue(self, value):
+        if self.attr_type is not None and not isinstance(value,
+                self.attr_type):
+            return False
+        if ( self.range is not None and (value < self.range[0] or value >
+            self.range[1]) ):
+            return False
+        return True
 
-    def repository():
-        doc = "The repository for job submission property"
-        def fget(self):
-            return self._repository
-        def fset(self, value):
-            self._repository = value
-            if not value:
-                self.pluginInfo.pop('NetworkRoot')
-            if value is not None:
-                self.pluginInfo['NetworkRoot']=value
-        return locals()
-    repository = property(**repository())
+    def __get__(self, instance, owner):
+        if hasattr(instance, self.attr_name):
+            return getattr(instance, self.attr_name)
+        else:
+            return self.default
 
-    def submit(self):
-        ''' submit job '''
-        if self.jobId and self.submitOnlyOnce:
-            raise DeadlineMayaException, ("Job Already Submitted ... try"
-                    "job.copy().submit()")
-
-            if not self.scene:
-                pass
-
-        if self.repository:
-            self.pluginInfo['NetworkRoot']=self.repository
-
-        tempdir = os.path.join(dl.getCurrentUserHomeDirectory(), "Temp")
-        jobInfoFilename = os.path.join(tempdir, "deadlineJobInfo.job")
-        pluginInfoFilename = os.path.join(tempdir, "mayaPluginInfo.job")
-
-        with open(jobInfoFilename, "w") as infoFile:
-            infoFile.write(self.jobInfo.toString())
-        with open(pluginInfoFilename, "w") as infoFile:
-            infoFile.write(self.pluginInfo.toString())
-
-        try:
-            commandargs = [jobInfoFilename, pluginInfoFilename]
-            if self.submitSceneFile:
-                commandargs.append(self.scene)
-            self.output = dl.deadlineCommand(*commandargs)
-        except dl.DeadlineWrapperException as e:
-            self.output = e.message
-            raise DeadlineMayaException, "Error Submitting Job\n" + e.message
-
-        self.parseSubmissionOutput()
-
-        return self.jobId
-
+    def __set__(self, instance, value):
+        if value is None and self.attr_type is not None:
+            value = self.default
+        if self.checkValue(value):
+            setattr(instance, self.attr_name, value)
 
 class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     _jobs=[]
+
+    jobName = DeadlineSubmitterAttr('jobName', '', basestring)
+    comment = DeadlineSubmitterAttr('comment', '', basestring)
+    department = DeadlineSubmitterAttr('department', '', basestring)
+    projectPath = DeadlineSubmitterAttr('projectPath', '', basestring)
+    camera = DeadlineSubmitterAttr('camera', None, basestring)
+    submitEachRenderLayer = DeadlineSubmitterAttr('submitEachRenderLayer', 1,
+            int)
+    submitEachCamera = DeadlineSubmitterAttr('submitEachRenderLayer', 0, int )
+    ignoreDefaultCamera = DeadlineSubmitterAttr('ignoreDefaultCamera', 0, int )
+    strictErrorChecking = DeadlineSubmitterAttr('strictErrorChecking', 1, int)
+    sceneFile= DeadlineSubmitterAttr('sceneFile', '', basestring)
+    localRendering = DeadlineSubmitterAttr('localRendering', 0, basestring)
+    outputPath = DeadlineSubmitterAttr('outputPath', '', basestring)
+    submitAsSuspended = DeadlineSubmitterAttr('submitAsSuspended', 0, int)
+    priority = DeadlineSubmitterAttr('priority', 25, int)
+    submitSceneFile = DeadlineSubmitterAttr('submitSceneFile', 1, int)
+    chunkSize = DeadlineSubmitterAttr('chunkSize', 15, int)
+    pool = DeadlineSubmitterAttr('pool', 'none', str)
+    frameStart = DeadlineSubmitterAttr('frameStart', None)
+    frameEnd = DeadlineSubmitterAttr('frameEnd', None)
+    frameStep = DeadlineSubmitterAttr('frameStep', None)
+    frames = DeadlineSubmitterAttr('frames', None)
+    resolution = DeadlineSubmitterAttr('resolution', None)
 
     def __init__(self, jobName=None, comment=None, department=None,
             projectPath=None, camera=None, submitEachRenderLayer=None,
@@ -522,100 +443,30 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             pool=None, submitAsSuspended=None, priority=None,
             submitSceneFile=None, chunkSize=None, frames=None, frameStart=None,
             frameEnd=None, frameStep=None, resolution=None):
-
         if jobName is None:
-            self._jobName = mc.file(q=True, sceneName=True)
-        else:
-            self._jobName = jobName
-
-        if comment is None:
-            self._comment = ''
-        else:
-            self._comment = comment
-
-        if department is None:
-            self._department = ''
-        else:
-            self._department = department
-
-        if projectPath is None:
-            self._projectPath = imaya.getProjectPath()
-        else:
-            self._projectPath = projectPath
-
-        if camera is None:
-            self._camera = None
-        else:
-            self._camera = camera
-
-        if submitEachRenderLayer is None:
-            self._submitEachRenderLayer = 1
-        else:
-            self._submitEachRenderLayer = submitEachRenderLayer
-
-        if submitEachCamera is None:
-            self._submitEachCamera = 0
-        else:
-            self._submitEachCamera = submitEachCamera
-
-        if ignoreDefaultCamera is None:
-            self._ignoreDefaultCamera = 1
-        else:
-            self._ignoreDefaultCamera = ignoreDefaultCamera
-
-        if strictErrorChecking is None:
-            self._strictErrorChecking = 1
-        else:
-            self._strictErrorChecking = strictErrorChecking
-
+            jobName = mc.file(q=True, sceneName=True)
+        self.jobName = jobName
+        self.comment = comment
+        self.department = department
+        self.projectPath = projectPath
+        self.camera = camera
+        self.ignoreDefaultCamera = ignoreDefaultCamera
+        self.strictErrorChecking = strictErrorChecking
         if sceneFile is None:
-            self._sceneFile = imaya.get_file_path()
-        else:
-            self._sceneFile = sceneFile
-
-        if localRendering is None:
-            self._localRendering = 0
-        else:
-            self._localRendering = localRendering
-
-        if localRendering is None:
-            self._localRendering = 0
-        else:
-            self._localRendering = localRendering
-
+            sceneFile = imaya.get_file_path()
+        self.sceneFile = sceneFile
+        self.localRendering = localRendering
         if outputPath is None:
             try:
-                self._outputPath = imaya.getImagesLocation(self.projectPath)
+                self.outputPath = imaya.getImagesLocation(self.projectPath)
             except RuntimeError:
-                self._outputPath = op.join(self._projectPath, 'images')
+                self.outputPath = op.join(self._projectPath, 'images')
         else:
-            self._outputPath = outputPath
-
-        if submitAsSuspended is None:
-            self._submitAsSuspended = False
-        else:
-            self._submitAsSuspended = submitAsSuspended
-
-        if priority is None:
-            self._priority = '25'
-        else:
-            self._priority = priority
-
-        if submitSceneFile is None:
-            self._submitSceneFile = False
-        else:
-            self._submitSceneFile = priority
-
-        if chunkSize is None:
-            self._chunkSize=15
-        else:
-            self._chunkSize=chunkSize
-
-        if pool is None:
-            self._pool='none'
-        else:
-            self._pool=pool
-
+            self.outputPath = outputPath
+        self.submitAsSuspended = submitAsSuspended
+        self.priority = priority
+        self.submitSceneFile = submitSceneFile
+        self.pool = pool
         self.frameStart = frameStart
         self.frameEnd = frameEnd
         self.frameStep  = frameStep
@@ -740,9 +591,9 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             job.pluginInfo[key]=str(cam)
 
     def setJobFrames(self, job):
-        frames = self._frames
+        frames = self.frames
         if frames is None:
-            start, finish, step = ( self._frameStart, self._frameEnd,
+            start, finish, step = ( self.frameStart, self.frameEnd,
                     self.frameStep )
             frameRange = imaya.getFrameRange()
 
@@ -779,148 +630,6 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
 
     def getJobs(self):
         return self._jobs
-
-    if 'properties':
-        def setJobName(self, val):
-            self._jobName = val
-        def getJobName(self):
-            return self._jobName
-        jobName=property(getJobName,setJobName)
-
-        def setComment(self, val):
-            self._comment = val
-        def getComment(self):
-            return self._comment
-        comment=property(getComment,setComment)
-
-        def setDepartment(self, val):
-            self._department = val
-        def getDepartment(self):
-            return self._department
-        department=property(getDepartment,setDepartment)
-
-        def setProjectPath(self, val):
-            self._projectPath = val
-        def getProjectPath(self):
-            return self._projectPath
-        projectPath=property(getProjectPath,setProjectPath)
-
-        def setCamera(self, val):
-            self._camera = val
-        def getCamera(self):
-            return self._camera
-        camera=property(getCamera,setCamera)
-
-        def setSubmitEachRenderLayer(self, val):
-            self._submitEachRenderLayer = val
-        def getSubmitEachRenderLayer(self):
-            return self._submitEachRenderLayer
-        submitEachRenderLayer=property(getSubmitEachRenderLayer,setSubmitEachRenderLayer) 
-
-        def setSubmitEachCamera(self, val):
-            self._submitEachCamera = val
-        def getSubmitEachCamera(self):
-            return self._submitEachCamera
-        submitEachCamera=property(getSubmitEachCamera,setSubmitEachCamera)
-
-        def setIgnoreDefaultCamera(self, val):
-            self._ignoreDefaultCamera = val
-        def getIgnoreDefaultCamera(self):
-            return self._ignoreDefaultCamera
-        ignoreDefaultCamera=property(getIgnoreDefaultCamera,setIgnoreDefaultCamera)
-
-        def setStrictErrorChecking(self, val):
-            self._strictErrorChecking = val
-        def getStrictErrorChecking(self):
-            return self._strictErrorChecking
-        strictErrorChecking=property(getStrictErrorChecking,setStrictErrorChecking)
-
-        def setLocalRendering(self, val):
-            self._localRendering = val
-        def getLocalRendering(self):
-            return self._localRendering
-        localRendering=property(getLocalRendering,setLocalRendering)
-
-        def setOutputPath(self, val):
-            self._outputPath = val
-        def getOutputPath(self):
-            return self._outputPath
-        outputPath=property(getOutputPath,setOutputPath)
-
-        def setPool(self, val):
-            self._pool = val
-        def getPool(self):
-            return self._pool
-        pool=property(getPool,setPool)
-
-        def setSceneFile(self, val):
-            self._sceneFile = val
-        def getSceneFile(self):
-            return self._sceneFile
-        sceneFile=property(getSceneFile, setSceneFile)
-
-        def setPriority(self, val):
-            if not isinstance(val, int):
-                raise TypeError, 'priority must be int'
-            if val < 0 or val > 100:
-                raise ValueError, 'priority must be between 0 and 100'
-            self._priority = val
-        def getPriority(self):
-            return self._priority
-        priority=property(getPriority, setPriority)
-
-        def setSubmitAsSuspended(self, val):
-            val = bool(val)
-            self._submitAsSuspended = val
-        def getSubmitAsSuspended(self):
-            return self._submitAsSuspended
-        submitAsSuspended=property(getSubmitAsSuspended, setSubmitAsSuspended)
-
-        def setSubmitSceneFile(self, val):
-            self._submitAsSuspended = val
-        def getSubmitSceneFile(self):
-            return self._submitAsSuspended
-        submitSceneFile=property(getSubmitSceneFile, setSubmitSceneFile)
-
-        def setChunkSize(self, val):
-            if not isinstance(val, int):
-                raise TypeError, 'Chunk size should be an int'
-            self._chunkSize = val
-        def getChunkSize(self):
-            return self._chunkSize
-        chunkSize=property(getChunkSize, setChunkSize)
-
-        def setFrameStart(self, val):
-            self._frameStart = val
-        def getFrameStart(self):
-            return self._frameStart
-        frameStart = property(getFrameStart, setFrameStart)
-
-        def setFrameEnd(self, val):
-            self._frameEnd = val
-        def getFrameEnd(self):
-            return self._frameEnd
-        frameEnd = property(getFrameEnd, setFrameEnd)
-
-        def setFrameStep(self, val):
-            self._frameStep  = val
-        def getFrameStep(self):
-            return self._frameStep 
-        frameStep  = property(getFrameStep, setFrameStep )
-
-        def setFrames(self, val):
-            self._frames = val
-        def getFrames(self):
-            return self._frames
-        frames = property(getFrames, setFrames)
-
-        def setResolution(self, val):
-            self._resolution = val
-        def getResolution(self):
-            return self._resolution
-        resolution = property(getResolution, setResolution)
-
-
 
 if __name__ == '__main__':
     dui = DeadlineMayaSubmitterUI()
