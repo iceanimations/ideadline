@@ -374,7 +374,8 @@ class DeadlineMayaJob(DeadlineJob):
     scene = property(fget=getScene, fset=setScene)
 
 class DeadlineSubmitterAttr(object):
-    def __init__(self, attr_name, default=None, attr_type=None, range=None):
+    def __init__(self, attr_name, default=None, attr_type=None, range=None,
+            choices=None):
         ''':type attr_name: str'''
         if not attr_name.startswith('_'):
             attr_name = '_' + attr_name
@@ -383,6 +384,7 @@ class DeadlineSubmitterAttr(object):
         self.attr_name = attr_name
         self.attr_type = attr_type
         self.range = range
+        self.choices = choices
         if default is None or self.checkValue(default):
             self.default = default
         else:
@@ -392,7 +394,9 @@ class DeadlineSubmitterAttr(object):
         if self.attr_type is not None and not isinstance(value,
                 self.attr_type):
             return False
-        if ( self.range is not None and (value < self.range[0] or value >
+        if self.choices is not None and value not in self.choices:
+            return False
+        if ( self.range is not None and (value < self.range[0] or value >=
             self.range[1]) ):
             return False
         return True
@@ -409,6 +413,7 @@ class DeadlineSubmitterAttr(object):
         if self.checkValue(value):
             setattr(instance, self.attr_name, value)
 
+
 class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     _jobs=[]
 
@@ -423,13 +428,13 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     ignoreDefaultCamera = DeadlineSubmitterAttr('ignoreDefaultCamera', 0, int )
     strictErrorChecking = DeadlineSubmitterAttr('strictErrorChecking', 1, int)
     sceneFile= DeadlineSubmitterAttr('sceneFile', '', basestring)
-    localRendering = DeadlineSubmitterAttr('localRendering', 0, basestring)
+    localRendering = DeadlineSubmitterAttr('localRendering', 0, int)
     outputPath = DeadlineSubmitterAttr('outputPath', '', basestring)
     submitAsSuspended = DeadlineSubmitterAttr('submitAsSuspended', 0, int)
     priority = DeadlineSubmitterAttr('priority', 25, int)
     submitSceneFile = DeadlineSubmitterAttr('submitSceneFile', 1, int)
     chunkSize = DeadlineSubmitterAttr('chunkSize', 15, int)
-    pool = DeadlineSubmitterAttr('pool', 'none', str)
+    pool = DeadlineSubmitterAttr('pool', 'none', basestring)
     frameStart = DeadlineSubmitterAttr('frameStart', None)
     frameEnd = DeadlineSubmitterAttr('frameEnd', None)
     frameStep = DeadlineSubmitterAttr('frameStep', None)
@@ -623,9 +628,12 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
             job.jobInfo[key]=ofn
 
     def submitJobs(self):
+        jobs = []
         for job in self._jobs:
             if not job.jobId:
                 job.submit()
+                jobs.append(job.jobId)
+        return jobs
     submitRender = submitJobs
 
     def getJobs(self):
