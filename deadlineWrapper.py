@@ -68,7 +68,7 @@ class DeadlineAttr(object):
         self.checkValue(default)
 
     def checkValue(self, value):
-        if self.attr_type is not None and not isinstance(self.default,
+        if self.attr_type is not None and not isinstance(value,
                 self.attr_type):
             raise TypeError, 'value must be of type: %r' % self.attr_type
 
