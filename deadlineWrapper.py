@@ -50,7 +50,7 @@ def setBinPath(binPath=None):
         __deadlineBinPath__ = binPath
         __deadlineCmdPath__ = os.path.join(__deadlineBinPath__, __deadlineCommand__ )
 
-setBinPath()
+setBinPath(r'C:\Program Files\Thinkbox\Deadline8\bin')
 
 class DeadlineWrapperException(Exception):
     pass
