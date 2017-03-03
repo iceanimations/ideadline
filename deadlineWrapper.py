@@ -6,10 +6,6 @@ import re
 import cStringIO
 
 
-import sys
-sys.path.append(r"d:\talha.ahmed\workspace\repos\tactic")
-
-
 import iutil
 reload(iutil)
 
@@ -22,13 +18,14 @@ __all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
         "filterItems", "deadlineCommand", "jobFilter", "matchValue",
         "matchMethods", "getRepositoryRoot", "getRepositoryRoots",
         "cycleRepository", "changeRepository", "getCurrentUserHomeDirectory",
-        "getJob", "getJobs", "getJobIds", "pools"
+        "getJob", "getJobs", "getJobIds", "pools", "DeadlineAttr",
+        "DeadlinePluginInfo", "DeadlineJobInfo", "DeadlineJob",
         ] + _jobFilters
 
 
 # Constants
 __deadlineCommand__ = 'DeadlineCommand'
-__deadlineDefaultRepo__ = r"\\ice-sql\Deadline_5.2\DeadlineRepository"
+__deadlineDefaultRepo__ = r"\\HP-011\DeadlineRepository8"
 
 # Setting Deadline Command path
 __deadlineCmdPath__ = None

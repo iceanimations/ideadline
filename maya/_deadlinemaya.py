@@ -374,6 +374,7 @@ class DeadlineMayaJob(DeadlineJob):
     scene = property(fget=getScene, fset=setScene)
 
 class DeadlineSubmitterAttr(object):
+
     def __init__(self, attr_name, default=None, attr_type=None, range=None,
             choices=None):
         ''':type attr_name: str'''
