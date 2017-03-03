@@ -26,6 +26,7 @@ __all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
 # Constants
 __deadlineCommand__ = 'DeadlineCommand'
 __deadlineDefaultRepo__ = r"\\HP-011\DeadlineRepository8"
+__deadlineDefaultBin__ = r'C:\Program Files\Thinkbox\Deadline8\bin'
 
 # Setting Deadline Command path
 __deadlineCmdPath__ = None
@@ -45,12 +46,18 @@ def setBinPath(binPath=None):
         else:
             __deadlineBinPath__ = os.path.join(__deadlineDefaultRepo__, "bin",
                     "Windows")
-            __deadlineCmdPath__ = os.path.join(__deadlineBinPath__, __deadlineCommand__ )
+            __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
+                    __deadlineCommand__ )
+            if not os.path.exists(__deadlineCmdPath__):
+                __deadlineBinPath__ = __deadlineDefaultBin__
+                __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
+                        __deadlineCommand__ )
     else:
         __deadlineBinPath__ = binPath
-        __deadlineCmdPath__ = os.path.join(__deadlineBinPath__, __deadlineCommand__ )
+        __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
+                __deadlineCommand__ )
 
-setBinPath(r'C:\Program Files\Thinkbox\Deadline8\bin')
+setBinPath()
 
 class DeadlineWrapperException(Exception):
     pass
