@@ -207,7 +207,7 @@ class DeadlineJob(object):
         if len(splits) > 2:
             self.errorString = splits[-1].strip()
 
-    def submit(self):
+    def submit(self, auxFiles=None):
         ''' submit job '''
         if self.jobId and self.submitOnlyOnce:
             raise self.exception, ("Job Already Submitted ... try"
@@ -232,6 +232,8 @@ class DeadlineJob(object):
             commandargs = [self.jobInfoFilename, self.pluginInfoFilename]
             if self.submitSceneFile:
                 commandargs.append(self.scene)
+            if auxFiles:
+                commandargs.extend(auxFiles)
             self.output = deadlineCommand(*commandargs)
         except DeadlineWrapperException as e:
             self.output = e.message

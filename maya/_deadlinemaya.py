@@ -414,7 +414,6 @@ class DeadlineSubmitterAttr(object):
         if self.checkValue(value):
             setattr(instance, self.attr_name, value)
 
-
 class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     _jobs=[]
 
