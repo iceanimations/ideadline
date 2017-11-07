@@ -9,19 +9,35 @@ import sys
 import iutil
 reload(iutil)
 
+_jobFilters = [
+    'getJobsFilterAnd', 'getJobsFilterIniAnd', 'getJobIdsFilter',
+    'getJobIdsFilterAnd', 'getJobsFilter', 'getJobsFilterIni'
+]
 
-_jobFilters = [ 'getJobsFilterAnd', 'getJobsFilterIniAnd',
-'getJobIdsFilter', 'getJobIdsFilterAnd', 'getJobsFilter', 'getJobsFilterIni']
-
-
-__all__ = ["DeadlineWrapperException", "getStatus", "setBinPath", "getBinPath",
-        "filterItems", "deadlineCommand", "jobFilter", "matchValue",
-        "matchMethods", "getRepositoryRoot", "getRepositoryRoots",
-        "cycleRepository", "changeRepository", "getCurrentUserHomeDirectory",
-        "getJob", "getJobs", "getJobIds", "pools", "DeadlineAttr",
-        "DeadlinePluginInfo", "DeadlineJobInfo", "DeadlineJob",
-        ] + _jobFilters
-
+__all__ = [
+    "DeadlineWrapperException",
+    "getStatus",
+    "setBinPath",
+    "getBinPath",
+    "filterItems",
+    "deadlineCommand",
+    "jobFilter",
+    "matchValue",
+    "matchMethods",
+    "getRepositoryRoot",
+    "getRepositoryRoots",
+    "cycleRepository",
+    "changeRepository",
+    "getCurrentUserHomeDirectory",
+    "getJob",
+    "getJobs",
+    "getJobIds",
+    "pools",
+    "DeadlineAttr",
+    "DeadlinePluginInfo",
+    "DeadlineJobInfo",
+    "DeadlineJob",
+] + _jobFilters
 
 # Constants
 __deadlineCommand__ = 'DeadlineCommand'
@@ -32,8 +48,10 @@ __deadlineDefaultBin__ = r'C:\Program Files\Thinkbox\Deadline8\bin'
 __deadlineCmdPath__ = None
 __deadlineBinPath__ = None
 
+
 def getBinPath():
     return __deadlineBinPath__
+
 
 def setBinPath(binPath=None):
     global __deadlineBinPath__
@@ -45,22 +63,25 @@ def setBinPath(binPath=None):
             __deadlineBinPath__ = os.path.dirname(cmdPath)
         else:
             __deadlineBinPath__ = os.path.join(__deadlineDefaultRepo__, "bin",
-                    "Windows")
+                                               "Windows")
             __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
-                    __deadlineCommand__ )
+                                               __deadlineCommand__)
             if not os.path.exists(__deadlineCmdPath__):
                 __deadlineBinPath__ = __deadlineDefaultBin__
                 __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
-                        __deadlineCommand__ )
+                                                   __deadlineCommand__)
     else:
         __deadlineBinPath__ = binPath
         __deadlineCmdPath__ = os.path.join(__deadlineBinPath__,
-                __deadlineCommand__ )
+                                           __deadlineCommand__)
+
 
 setBinPath()
 
+
 class DeadlineWrapperException(Exception):
     pass
+
 
 class DeadlineAttr(object):
     '''Attribute for job and plugin Info'''
@@ -72,9 +93,9 @@ class DeadlineAttr(object):
         self.checkValue(default)
 
     def checkValue(self, value):
-        if self.attr_type is not None and not isinstance(value,
-                self.attr_type):
-            raise TypeError, 'value must be of type: %r' % self.attr_type
+        if self.attr_type is not None and not isinstance(
+                value, self.attr_type):
+            raise TypeError('value must be of type: %r' % self.attr_type)
 
     def __get__(self, instance, owner=None):
         ':type instance: Info'
@@ -83,25 +104,28 @@ class DeadlineAttr(object):
     def __set__(self, instance, value):
         ':type instance: Info'
         self.checkValue(value)
-        instance[self.key]=value
+        instance[self.key] = value
+
 
 class DeadlineInfo(OrderedDict):
     ''' Deadline Info '''
+
     def __init__(self, *args, **kwargs):
         super(DeadlineInfo, self).__init__(*args, **kwargs)
         for val in self.__class__.__dict__.itervalues():
-            if isinstance(val, DeadlineAttr) and not self.has_key(val.key):
-                self[val.key]=val.default
+            if isinstance(val, DeadlineAttr) and val.key not in self:
+                self[val.key] = val.default
 
     def toString(self):
         output = cStringIO.StringIO()
         for key, value in self.iteritems():
-            print >>output, "%s=%s"%(str(key), str(value).replace('\\', '/'))
+            print >> output, "%s=%s" % (str(key),
+                                        str(value).replace('\\', '/'))
         return output.getvalue()
 
     def readFromString(self, fromString):
         if not isinstance(fromString, basestring):
-            raise TypeError, "Only string are expected"
+            raise TypeError("Only string are expected")
         for line in fromString.splitlines(True):
             splits = line.split('=')
             if len(splits) < 2:
@@ -116,28 +140,32 @@ class DeadlineInfo(OrderedDict):
         with open('filename', 'w') as outputfile:
             outputfile.write(self.toString())
 
+
 class DeadlineJobInfo(DeadlineInfo):
-    plugin = DeadlineAttr('Plugin', 'MayaBatch', str)
-    name = DeadlineAttr('Name', '', str)
-    comment = DeadlineAttr('Comment', '', str)
-    pool = DeadlineAttr('Pool', 'none', str)
+    plugin = DeadlineAttr('Plugin', 'MayaBatch', basestring)
+    name = DeadlineAttr('Name', '', basestring)
+    comment = DeadlineAttr('Comment', '', basestring)
+    pool = DeadlineAttr('Pool', 'none', basestring)
+    secondaryPool = DeadlineAttr('SecondaryPool', 'none', basestring)
     machineLimit = DeadlineAttr('MachineLimit', 0, int)
     priority = DeadlineAttr('Priority', 25, int)
-    onJobComplete = DeadlineAttr('OnJobComplete', 'Nothing', str)
+    onJobComplete = DeadlineAttr('OnJobComplete', 'Nothing', basestring)
     taskTimeoutMinutes = DeadlineAttr('TaskTimeoutMinutes', 0, int)
     minRenderTimeoutMinutes = DeadlineAttr('MinRenderTimeMinutes', 0, int)
     concurrentTasks = DeadlineAttr('ConcurrentTasks', 1, int)
-    department = DeadlineAttr('Department', '', str)
-    group = DeadlineAttr('Group', '', str)
-    limitGroups = DeadlineAttr('LimitGroups', '', str)
-    jobDependencies = DeadlineAttr('JobDependencies', '', str)
-    initialStatus = DeadlineAttr('InitialStatus', 'Active', str)
-    outputFilename0 = DeadlineAttr('OutputFilename0', '', str)
-    frames = DeadlineAttr('Frames', '1-48', str)
-    chunkSize = DeadlineAttr('ChunkSize', '25', str)
+    department = DeadlineAttr('Department', '', basestring)
+    group = DeadlineAttr('Group', '', basestring)
+    limitGroups = DeadlineAttr('LimitGroups', '', basestring)
+    jobDependencies = DeadlineAttr('JobDependencies', '', basestring)
+    initialStatus = DeadlineAttr('InitialStatus', 'Active', basestring)
+    outputFilename0 = DeadlineAttr('OutputFilename0', '', basestring)
+    frames = DeadlineAttr('Frames', '1-48', basestring)
+    chunkSize = DeadlineAttr('ChunkSize', '25', basestring)
+
 
 class DeadlinePluginInfo(DeadlineInfo):
     pass
+
 
 class DeadlineJob(object):
     jobInfo = None
@@ -157,8 +185,12 @@ class DeadlineJob(object):
     exception = DeadlineWrapperException
     pluginInfoClass = DeadlinePluginInfo
 
-    def __init__(self, jobInfo=None, pluginInfo=None, scene=None,
-            submitSceneFile=False, submitOnlyOnce=True):
+    def __init__(self,
+                 jobInfo=None,
+                 pluginInfo=None,
+                 scene=None,
+                 submitSceneFile=False,
+                 submitOnlyOnce=True):
         if jobInfo is None:
             self.jobInfo = DeadlineJobInfo()
         if pluginInfo is None:
@@ -168,24 +200,31 @@ class DeadlineJob(object):
         self.submitOnlyOnce = submitOnlyOnce
 
     _repository = None
+
     def repository():
         doc = "The repository for job submission property"
+
         def fget(self):
             return self._repository
+
         def fset(self, value):
             self._repository = value
             if not value:
                 self.pluginInfo.pop('NetworkRoot')
             if value is not None:
-                self.pluginInfo['NetworkRoot']=value
+                self.pluginInfo['NetworkRoot'] = value
+
         return locals()
+
     repository = property(**repository())
 
     def copy(self):
-        job = self.__class__(jobInfo=self.jobInfo.copy(),
-                pluginInfo=self.pluginInfo.copy(), scene=self.scene,
-                submitSceneFile=self.submitSceneFile,
-                submitOnlyOnce=self.submitOnlyOnce )
+        job = self.__class__(
+            jobInfo=self.jobInfo.copy(),
+            pluginInfo=self.pluginInfo.copy(),
+            scene=self.scene,
+            submitSceneFile=self.submitSceneFile,
+            submitOnlyOnce=self.submitOnlyOnce)
         return job
 
     def parseSubmissionOutput(self, output=None):
@@ -211,17 +250,17 @@ class DeadlineJob(object):
         ''' submit job '''
         if self.jobId and self.submitOnlyOnce:
             raise self.exception, ("Job Already Submitted ... try"
-                    "job.copy().submit()")
+                                   "job.copy().submit()")
 
             if not self.scene:
                 pass
 
         if self.repository:
-            self.pluginInfo['NetworkRoot']=self.repository
+            self.pluginInfo['NetworkRoot'] = self.repository
 
         tempdir = os.path.join(getCurrentUserHomeDirectory(), "Temp")
         self.jobInfoFilename = os.path.join(tempdir, "jobInfo.job")
-        self.pluginInfoFilename= os.path.join(tempdir, "pluginInfo.job")
+        self.pluginInfoFilename = os.path.join(tempdir, "pluginInfo.job")
 
         with open(self.jobInfoFilename, "w") as infoFile:
             infoFile.write(self.jobInfo.toString())
@@ -237,7 +276,7 @@ class DeadlineJob(object):
             self.output = deadlineCommand(*commandargs)
         except DeadlineWrapperException as e:
             self.output = e.message
-            raise DeadlineWrapperException, "Error Submitting Job\n" + e.message
+            raise self.exception, "Error Submitting Job\n" + e.message
 
         self.parseSubmissionOutput()
 
@@ -245,7 +284,8 @@ class DeadlineJob(object):
 
 
 def deadlineCommand(command, *args, **kwargs):
-    ''' Invoke DeadlineCommand.exe to execute with the given args as commandline args'''
+    ''' Invoke DeadlineCommand.exe to execute with the given args as
+    commandline args'''
 
     commandargs = [__deadlineCmdPath__]
     commandargs.append(command)
@@ -263,14 +303,15 @@ def deadlineCommand(command, *args, **kwargs):
     try:
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        output = subprocess.check_output(commandargs, stderr=subprocess.STDOUT,
-                startupinfo=startupinfo)
+        output = subprocess.check_output(
+            commandargs, stderr=subprocess.STDOUT, startupinfo=startupinfo)
 
     except subprocess.CalledProcessError as e:
-        raise DeadlineWrapperException, ("CalledProcessError:\n" + str(e) +
-                "\n\nOutput:\n" + e.output)
+        raise DeadlineWrapperException("CalledProcessError:\n" + str(e) +
+                                       "\n\nOutput:\n" + e.output)
 
     return output
+
 
 def getItemsFromOutput(output):
     items = []
@@ -279,30 +320,36 @@ def getItemsFromOutput(output):
     for line in output.splitlines():
         line = line.strip()
         if not line or line.startswith('['):
-            title = line[line.find('[')+1:line.find(']')]
+            title = line[line.find('[') + 1:line.find(']')]
             if currentItem or currentItem.title:
                 items.append(currentItem)
-                currentItem=OrderedDict()
+                currentItem = OrderedDict()
                 currentItem.title = None
                 if title:
-                    currentItem.title=title
+                    currentItem.title = title
             continue
 
         splits = line.split('=')
-        if len(splits)==1:
+        if len(splits) == 1:
             items.append(line)
-        elif len(splits)==2:
-            currentItem[splits[0]]= splits[1]
+        elif len(splits) == 2:
+            currentItem[splits[0]] = splits[1]
         else:
-            raise DeadlineWrapperException, 'Unexpected string format encountered'
+            raise DeadlineWrapperException(
+                'Unexpected string format encountered')
 
     if currentItem or currentItem.title:
         items.append(currentItem)
 
     return items
 
-matchMethods = ['eq', 'in', 'contains', 'not in', 'not contains', 'startswith',
-        'not startswith', 'endswith', 'not endswith', 'matches', 'not matches']
+
+matchMethods = [
+    'eq', 'in', 'contains', 'not in', 'not contains', 'startswith',
+    'not startswith', 'endswith', 'not endswith', 'matches', 'not matches'
+]
+
+
 def matchValue(itemval, filterval, method=matchMethods[0]):
     if method == matchMethods[0]:
         return itemval == filterval
@@ -327,7 +374,8 @@ def matchValue(itemval, filterval, method=matchMethods[0]):
     elif method == matchMethods[10]:
         return not bool(re.match(filterval, itemval))
     else:
-        raise DeadlineWrapperException, "Unknown filter type"
+        raise DeadlineWrapperException("Unknown filter type")
+
 
 def filterItems(items, filters=[], match_any=True):
     ''' filter items on bases of the provided filters '''
@@ -339,7 +387,7 @@ def filterItems(items, filters=[], match_any=True):
             itemIsDict = False
         match = False
         for fil in filters:
-            if isinstance(fil, basestring) or len(fil)==1:
+            if isinstance(fil, basestring) or len(fil) == 1:
                 itemval = item
                 if itemIsDict and hasattr(item, "title"):
                     itemval = item.title
@@ -350,7 +398,7 @@ def filterItems(items, filters=[], match_any=True):
                 if fil[0] in matchMethods:
                     itemval = item
                     if itemIsDict and hasattr(item, "title"):
-                        itemval=item.title
+                        itemval = item.title
                     match = matchValue(itemval, fil[1], fil[0])
                 elif itemIsDict:
                     key, value = fil
@@ -360,7 +408,7 @@ def filterItems(items, filters=[], match_any=True):
                     key, filtype, value = fil
                     match = matchValue(item.get(key), value, filtype)
             else:
-                raise DeadlineWrapperException, "Unknown filter format"
+                raise DeadlineWrapperException("Unknown filter format")
 
             if (match and match_any) or not (match or match_any):
                 break
@@ -370,11 +418,14 @@ def filterItems(items, filters=[], match_any=True):
 
     return filtered
 
+
 def getStatus():
     return os.path.exists(__deadlineCmdPath__)
 
+
 def pools():
     return getItemsFromOutput(deadlineCommand("Pools"))
+
 
 def getRepositoryRoot():
     '''Display the repository network root '''
@@ -384,39 +435,48 @@ def getRepositoryRoot():
 def getRepositoryRoots():
     '''Display all repository roots in the Deadline config file '''
     return deadlineCommand("GetRepositoryRoots").splitlines()
+
+
 networks = getRepositoryRoots
+
 
 def changeRepository(repo):
     '''Display all repository roots in the Deadline config file'''
     deadlineCommand("ChangeRepository", repo)
 
+
 def getCurrentUserHomeDirectory():
     '''Display all repository roots in the Deadline config file'''
     return deadlineCommand("GetCurrentUserHomeDirectory").strip()
 
+
 def executeScript(script):
     return deadlineCommand("ExecuteScript", script)
+
 
 def getJobIds():
     '''Displays all the job IDs'''
     return getItemsFromOutput(deadlineCommand("GetJobIds"))
+
 
 def getJobs(useIniDisplay=False):
     '''Displays information for all the jobs'''
     useIniDisplay = bool(useIniDisplay)
     return getItemsFromOutput(deadlineCommand("GetJobs", str(useIniDisplay)))
 
+
 def getJob(jobIds, useIniDisplay=False):
     '''Display information for the job'''
     useIniDisplay = bool(useIniDisplay)
     if isinstance(jobIds, basestring):
-        items = getItemsFromOutput(deadlineCommand("GetJob",
-            str(useIniDisplay)))
+        items = getItemsFromOutput(
+            deadlineCommand("GetJob", str(useIniDisplay)))
         if items:
             return items[0]
     elif isinstance(jobIds, Iterable):
-        return getItemsFromOutput(deadlineCommand(",".join(jobIds),
-            useIniDisplay))
+        return getItemsFromOutput(
+            deadlineCommand(",".join(jobIds), useIniDisplay))
+
 
 def cycleRepository():
     roots = getRepositoryRoots()
@@ -425,11 +485,13 @@ def cycleRepository():
     changeRepository(roots[-1])
     return roots[-1]
 
+
 def jobFilter(command, filters=[]):
     if not filters:
         raise DeadlineWrapperException, "No Filters were provided"
-    filterargs = ["%s=%s"%(fil) for fil in filters]
+    filterargs = ["%s=%s" % (fil) for fil in filters]
     return getItemsFromOutput(deadlineCommand(command, *filterargs))
+
 
 for fil in _jobFilters:
     func = partial(jobFilter, fil)
@@ -437,4 +499,3 @@ for fil in _jobFilters:
 
 if __name__ == '__main__':
     print cycleRepository()
-
