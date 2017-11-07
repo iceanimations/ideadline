@@ -492,7 +492,6 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     submitSceneFile = DeadlineSubmitterAttr('submitSceneFile', 1, int)
     chunkSize = DeadlineSubmitterAttr('chunkSize', 15, int)
     pool = DeadlineSubmitterAttr('pool', 'none', basestring)
-    secondaryPool = DeadlineSubmitterAttr('secondaryPool', '', basestring)
     frameStart = DeadlineSubmitterAttr('frameStart', None)
     frameEnd = DeadlineSubmitterAttr('frameEnd', None)
     frameStep = DeadlineSubmitterAttr('frameStep', None)
@@ -629,7 +628,8 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
                                 if self.submitEachCamera else ''))
         job.jobInfo['Comment'] = self.comment
         job.jobInfo['Pool'] = self.pool
-        job.jobInfo['SecondaryPool'] = self.secondaryPool
+        if self.secondaryPool:
+            job.jobInfo['SecondaryPool'] = self.secondaryPool
         job.jobInfo['Department'] = self.department
         job.jobInfo['Priority'] = self.priority
         job.jobInfo['InitialStatus'] = ('Suspended' if self.submitAsSuspended
