@@ -492,7 +492,7 @@ class DeadlineMayaSubmitter(DeadlineMayaSubmitterBase):
     submitSceneFile = DeadlineSubmitterAttr('submitSceneFile', 1, int)
     chunkSize = DeadlineSubmitterAttr('chunkSize', 15, int)
     pool = DeadlineSubmitterAttr('pool', 'none', basestring)
-    secondaryPool = DeadlineSubmitterAttr('secondaryPool', None)
+    secondaryPool = DeadlineSubmitterAttr('secondaryPool', '', basestring)
     frameStart = DeadlineSubmitterAttr('frameStart', None)
     frameEnd = DeadlineSubmitterAttr('frameEnd', None)
     frameStep = DeadlineSubmitterAttr('frameStep', None)
