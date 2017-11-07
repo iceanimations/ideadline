@@ -146,7 +146,6 @@ class DeadlineJobInfo(DeadlineInfo):
     name = DeadlineAttr('Name', '', basestring)
     comment = DeadlineAttr('Comment', '', basestring)
     pool = DeadlineAttr('Pool', 'none', basestring)
-    secondaryPool = DeadlineAttr('SecondaryPool', '', basestring)
     machineLimit = DeadlineAttr('MachineLimit', 0, int)
     priority = DeadlineAttr('Priority', 25, int)
     onJobComplete = DeadlineAttr('OnJobComplete', 'Nothing', basestring)
